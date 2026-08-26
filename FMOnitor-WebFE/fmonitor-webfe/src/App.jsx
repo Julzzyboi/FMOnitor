@@ -1,8 +1,53 @@
+import { useEffect, useState } from 'react'
 import './App.css'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+
 function App() {
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get('token')
+    if (token) {
+      localStorage.setItem('jwt', token)
+      params.delete('token')
+      const newSearch = params.toString()
+      window.history.replaceState({}, '', window.location.pathname + (newSearch ? `?${newSearch}` : ''))
+    }
+
+    fetch(`${API_BASE_URL}/api/user`, { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then(setUser)
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false))
+  }, [])
+
   const handleGoogleSignIn = () => {
-    console.log('Sign in with Google clicked')
+    window.location.href = `${API_BASE_URL}/oauth2/authorization/google`
+  }
+
+  const handleLogout = () => {
+    window.location.href = `${API_BASE_URL}/logout`
+  }
+
+  if (loading) {
+    return null
+  }
+
+  if (user) {
+    return (
+      <div id="login-page">
+        <div className="login-card">
+          <h1>FMOnitor</h1>
+          <p>Signed in as {user.name} ({user.email})</p>
+          <button type="button" className="logout-btn" onClick={handleLogout}>
+            Log out
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
