@@ -15,6 +15,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.CustomOAuth2UserService;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.JwtAuthenticationSuccessHandler;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.JwtService;
 
@@ -25,9 +26,11 @@ public class SecurityConfig {
     private static final String FRONTEND_URL = "http://localhost:5173";
 
     private final JwtService jwtService;
+    private final CustomOAuth2UserService customOAuth2UserService;
 
-    public SecurityConfig(JwtService jwtService) {
+    public SecurityConfig(JwtService jwtService, CustomOAuth2UserService customOAuth2UserService) {
         this.jwtService = jwtService;
+        this.customOAuth2UserService = customOAuth2UserService;
     }
 
     @Bean
@@ -40,8 +43,9 @@ public class SecurityConfig {
             .exceptionHandling(ex -> ex.defaultAuthenticationEntryPointFor(
                 new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
                 PathPatternRequestMatcher.pathPattern("/api/**")))
-            .oauth2Login(oauth2 -> oauth2.successHandler(
-                new JwtAuthenticationSuccessHandler(jwtService, FRONTEND_URL)))
+            .oauth2Login(oauth2 -> oauth2
+                .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
+                .successHandler(new JwtAuthenticationSuccessHandler(jwtService, FRONTEND_URL)))
             .logout(logout -> logout
                 .logoutRequestMatcher(PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/logout"))
                 .logoutSuccessUrl(FRONTEND_URL + "/")
