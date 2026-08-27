@@ -1,0 +1,135 @@
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import DotGrid from '../components/common/DotGrid'
+import WaveFooter from '../components/common/WaveFooter'
+import logo from '../assets/logo.png'
+import buildingBg from '../assets/building-bg.png'
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+
+function GoogleIcon() {
+  return (
+    <svg className="h-[18px] w-[18px]" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.9-2.26 5.36-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+    </svg>
+  )
+}
+
+function Login() {
+  const navigate = useNavigate()
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get('token')
+    if (token) {
+      localStorage.setItem('jwt', token)
+      params.delete('token')
+      const newSearch = params.toString()
+      window.history.replaceState({}, '', window.location.pathname + (newSearch ? `?${newSearch}` : ''))
+    }
+
+    fetch(`${API_BASE_URL}/api/user`, { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then(setUser)
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const handleGoogleSignIn = () => {
+    // TODO: swap back to the real OAuth redirect once the admin pages are wired to live data:
+    // window.location.href = `${API_BASE_URL}/oauth2/authorization/google`
+    navigate('/dashboard')
+  }
+
+  const handleLogout = () => {
+    window.location.href = `${API_BASE_URL}/logout`
+  }
+
+  return (
+    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-white pb-12 sm:pb-16">
+      <DotGrid className="absolute left-6 top-6 z-10 opacity-90 sm:left-10 sm:top-10" />
+
+      <img
+        src={buildingBg}
+        alt=""
+        className="pointer-events-none absolute inset-0 h-full w-full animate-[fade-in-bg_1.4s_ease-out_forwards] object-cover object-center opacity-0"
+      />
+
+      <WaveFooter />
+
+      {loading ? (
+        <div className="relative z-10 flex flex-col items-center gap-4 animate-[fade-in_0.4s_ease-out_forwards]">
+          <img src={logo} alt="FMOnitor" className="h-20 w-20 animate-pulse" />
+          <div className="h-1 w-24 overflow-hidden rounded-full bg-amber-100">
+            <div className="h-full w-1/2 animate-[loading-bar_1s_ease-in-out_infinite] rounded-full bg-amber-400" />
+          </div>
+        </div>
+      ) : (
+        <div className="relative z-10 w-[90%] max-w-md animate-[fade-in-up_0.6s_ease-out_forwards] rounded-2xl bg-white p-8 text-center opacity-0 shadow-[0_18px_42px_-11px_rgba(0,0,0,0.25)] sm:p-12">
+          <div className="flex flex-col items-center animate-[fade-in-up_0.6s_ease-out_0.1s_forwards] opacity-0">
+            <img src={logo} alt="FMOnitor" className="h-24 w-24 sm:h-28 sm:w-28" />
+            <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">
+              <span className="text-[#fdcc36]">FMO</span>
+              <span className="text-gray-900">nitor</span>
+            </h1>
+            <p className="mt-1 text-xs font-semibold uppercase tracking-[0.25em] text-gray-700">
+              Facilities Management Office
+            </p>
+            <span className="mt-5 h-1 w-12 rounded-full bg-[#fdcc36]" />
+          </div>
+
+          {user ? (
+            <div className="mt-8 animate-[fade-in-up_0.6s_ease-out_0.2s_forwards] opacity-0">
+              <p className="text-sm text-gray-600">
+                Signed in as <span className="font-medium text-gray-900">{user.name}</span> ({user.email})
+              </p>
+              <Link
+                to="/dashboard"
+                className="mt-6 flex w-full cursor-pointer items-center justify-center rounded-full bg-[#fdcc36] px-6 py-3.5 text-base font-semibold text-gray-900 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0"
+              >
+                Go to Dashboard
+              </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="mt-3 w-full cursor-pointer rounded-full border border-gray-200 bg-white px-6 py-3.5 text-base font-medium text-gray-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md active:translate-y-0"
+              >
+                Log out
+              </button>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={handleGoogleSignIn}
+                className="mt-8 flex w-full cursor-pointer animate-[fade-in-up_0.6s_ease-out_0.2s_forwards] items-center justify-center gap-3 rounded-full border border-gray-200 bg-white px-6 py-3.5 text-base font-medium text-gray-700 opacity-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md hover:shadow-amber-100 active:translate-y-0"
+              >
+                <GoogleIcon />
+                Sign in with Google
+              </button>
+
+              <p className="mt-6 animate-[fade-in-up_0.6s_ease-out_0.3s_forwards] text-sm leading-relaxed text-gray-500 opacity-0">
+                By signing in, you agree to our{' '}
+                <a href="#" className="font-semibold text-[#fdcc36] hover:underline">
+                  Privacy Policy
+                </a>
+                <br className="hidden sm:block" /> and{' '}
+                <a href="#" className="font-semibold text-[#fdcc36] hover:underline">
+                  Terms and Conditions
+                </a>
+                .
+              </p>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default Login
