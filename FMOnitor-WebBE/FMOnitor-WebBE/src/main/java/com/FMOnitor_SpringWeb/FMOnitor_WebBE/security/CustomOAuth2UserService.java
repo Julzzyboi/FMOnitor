@@ -3,16 +3,18 @@ package com.FMOnitor_SpringWeb.FMOnitor_WebBE.security;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.model.tbl_Users;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_UsersRepo;
 
-import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
-import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
-import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.stereotype.Service;
 
-// Hooks into Spring Security's OAuth2 login right when it loads the user's
-// profile from Google - this runs on every login, before the success handler.
+// Google's registration includes the "openid" scope by default, which makes this
+// an OIDC login, not a plain OAuth2 one - Spring Security routes those through
+// OidcUserService, not the plain OAuth2UserService. This is the hook that
+// actually runs for Google logins.
 @Service
-public class CustomOAuth2UserService extends DefaultOAuth2UserService {
+public class CustomOAuth2UserService extends OidcUserService {
 
     private static final String DEFAULT_ROLE = "USER";
 
@@ -23,13 +25,13 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     }
 
     @Override
-    public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
-        OAuth2User oAuth2User = super.loadUser(userRequest);
+    public OidcUser loadUser(OidcUserRequest userRequest) throws OAuth2AuthenticationException {
+        OidcUser oidcUser = super.loadUser(userRequest);
 
-        String googleSub = oAuth2User.getAttribute("sub");
-        String email = oAuth2User.getAttribute("email");
-        String name = oAuth2User.getAttribute("name");
-        String picture = oAuth2User.getAttribute("picture");
+        String googleSub = oidcUser.getAttribute("sub");
+        String email = oidcUser.getAttribute("email");
+        String name = oidcUser.getAttribute("name");
+        String picture = oidcUser.getAttribute("picture");
 
         tbl_Users user = usersRepo.findByGoogleSub(googleSub).orElseGet(tbl_Users::new);
         user.setGoogleSub(googleSub);
@@ -41,8 +43,8 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         }
         usersRepo.save(user);
 
-        // The OAuth2User returned here is still what Spring Security's session/JwtAuthenticationSuccessHandler
+        // The OidcUser returned here is still what Spring Security's session/JwtAuthenticationSuccessHandler
         // see as the "principal" - we're only using this hook to persist a row, not changing the auth flow itself.
-        return oAuth2User;
+        return oidcUser;
     }
 }

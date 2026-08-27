@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import DotGrid from '../components/common/DotGrid'
 import WaveFooter from '../components/common/WaveFooter'
 import logo from '../assets/logo.png'
@@ -20,34 +20,37 @@ function GoogleIcon() {
 
 function Login() {
   const navigate = useNavigate()
-  const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const token = params.get('token')
-    if (token) {
-      localStorage.setItem('jwt', token)
-      params.delete('token')
-      const newSearch = params.toString()
-      window.history.replaceState({}, '', window.location.pathname + (newSearch ? `?${newSearch}` : ''))
+
+    if (!token) {
+      // Plain visit to the login page - just show the sign-in button, no auto-redirect.
+      setLoading(false)
+      return
     }
 
+    localStorage.setItem('jwt', token)
+    params.delete('token')
+    const newSearch = params.toString()
+    window.history.replaceState({}, '', window.location.pathname + (newSearch ? `?${newSearch}` : ''))
+
+    // Just completed the Google OAuth round trip - confirm the session is valid, then go straight to the dashboard.
     fetch(`${API_BASE_URL}/api/user`, { credentials: 'include' })
-      .then((res) => (res.ok ? res.json() : null))
-      .then(setUser)
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false))
-  }, [])
+      .then((res) => {
+        if (res.ok) {
+          navigate('/dashboard', { replace: true })
+        } else {
+          setLoading(false)
+        }
+      })
+      .catch(() => setLoading(false))
+  }, [navigate])
 
   const handleGoogleSignIn = () => {
-    // TODO: swap back to the real OAuth redirect once the admin pages are wired to live data:
-    // window.location.href = `${API_BASE_URL}/oauth2/authorization/google`
-    navigate('/dashboard')
-  }
-
-  const handleLogout = () => {
-    window.location.href = `${API_BASE_URL}/logout`
+    window.location.href = `${API_BASE_URL}/oauth2/authorization/google`
   }
 
   return (
@@ -83,49 +86,26 @@ function Login() {
             <span className="mt-5 h-1 w-12 rounded-full bg-[#fdcc36]" />
           </div>
 
-          {user ? (
-            <div className="mt-8 animate-[fade-in-up_0.6s_ease-out_0.2s_forwards] opacity-0">
-              <p className="text-sm text-gray-600">
-                Signed in as <span className="font-medium text-gray-900">{user.name}</span> ({user.email})
-              </p>
-              <Link
-                to="/dashboard"
-                className="mt-6 flex w-full cursor-pointer items-center justify-center rounded-full bg-[#fdcc36] px-6 py-3.5 text-base font-semibold text-gray-900 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0"
-              >
-                Go to Dashboard
-              </Link>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="mt-3 w-full cursor-pointer rounded-full border border-gray-200 bg-white px-6 py-3.5 text-base font-medium text-gray-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md active:translate-y-0"
-              >
-                Log out
-              </button>
-            </div>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={handleGoogleSignIn}
-                className="mt-8 flex w-full cursor-pointer animate-[fade-in-up_0.6s_ease-out_0.2s_forwards] items-center justify-center gap-3 rounded-full border border-gray-200 bg-white px-6 py-3.5 text-base font-medium text-gray-700 opacity-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md hover:shadow-amber-100 active:translate-y-0"
-              >
-                <GoogleIcon />
-                Sign in with Google
-              </button>
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            className="mt-8 flex w-full cursor-pointer animate-[fade-in-up_0.6s_ease-out_0.2s_forwards] items-center justify-center gap-3 rounded-full border border-gray-200 bg-white px-6 py-3.5 text-base font-medium text-gray-700 opacity-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md hover:shadow-amber-100 active:translate-y-0"
+          >
+            <GoogleIcon />
+            Sign in with Google
+          </button>
 
-              <p className="mt-6 animate-[fade-in-up_0.6s_ease-out_0.3s_forwards] text-sm leading-relaxed text-gray-500 opacity-0">
-                By signing in, you agree to our{' '}
-                <a href="#" className="font-semibold text-[#fdcc36] hover:underline">
-                  Privacy Policy
-                </a>
-                <br className="hidden sm:block" /> and{' '}
-                <a href="#" className="font-semibold text-[#fdcc36] hover:underline">
-                  Terms and Conditions
-                </a>
-                .
-              </p>
-            </>
-          )}
+          <p className="mt-6 animate-[fade-in-up_0.6s_ease-out_0.3s_forwards] text-sm leading-relaxed text-gray-500 opacity-0">
+            By signing in, you agree to our{' '}
+            <a href="#" className="font-semibold text-[#fdcc36] hover:underline">
+              Privacy Policy
+            </a>
+            <br className="hidden sm:block" /> and{' '}
+            <a href="#" className="font-semibold text-[#fdcc36] hover:underline">
+              Terms and Conditions
+            </a>
+            .
+          </p>
         </div>
       )}
     </div>
