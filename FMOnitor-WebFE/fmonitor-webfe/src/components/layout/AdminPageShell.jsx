@@ -11,7 +11,7 @@ function AdminPageShell({ children }) {
 
   if (loading) return <PageSkeleton />
 
-  return <div className="animate-[fade-in_0.4s_ease-out_forwards] p-8">{children}</div>
+  return <div className="animate-[fade-in_0.4s_ease-out_forwards] p-4 sm:p-6 lg:p-8">{children}</div>
 }
 
 export default AdminPageShell
