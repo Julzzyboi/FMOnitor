@@ -15,9 +15,12 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_LoginLogsRepo;
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_UsersRepo;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.CustomOAuth2UserService;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.JwtAuthenticationSuccessHandler;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.JwtService;
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.LogoutLogHandler;
 
 @Configuration
 @EnableWebSecurity
@@ -27,10 +30,15 @@ public class SecurityConfig {
 
     private final JwtService jwtService;
     private final CustomOAuth2UserService customOAuth2UserService;
+    private final tbl_LoginLogsRepo loginLogsRepo;
+    private final tbl_UsersRepo usersRepo;
 
-    public SecurityConfig(JwtService jwtService, CustomOAuth2UserService customOAuth2UserService) {
+    public SecurityConfig(JwtService jwtService, CustomOAuth2UserService customOAuth2UserService,
+                           tbl_LoginLogsRepo loginLogsRepo, tbl_UsersRepo usersRepo) {
         this.jwtService = jwtService;
         this.customOAuth2UserService = customOAuth2UserService;
+        this.loginLogsRepo = loginLogsRepo;
+        this.usersRepo = usersRepo;
     }
 
     @Bean
@@ -48,7 +56,7 @@ public class SecurityConfig {
                 .successHandler(new JwtAuthenticationSuccessHandler(jwtService, FRONTEND_URL)))
             .logout(logout -> logout
                 .logoutRequestMatcher(PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/logout"))
-                .logoutSuccessUrl(FRONTEND_URL + "/")
+                .logoutSuccessHandler(new LogoutLogHandler(loginLogsRepo, usersRepo, FRONTEND_URL))
                 .deleteCookies("JSESSIONID"));
         return http.build();
     }

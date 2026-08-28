@@ -8,6 +8,15 @@ import {
   faUsers,
 } from '@fortawesome/free-solid-svg-icons'
 
+// History log type tabs - rendered as in-page buttons on the History page itself.
+export const HISTORY_LOG_TYPES = [
+  { key: 'ALL', label: 'All Activity' },
+  { key: 'LOGIN_ACTIVITY', label: 'Login Activity' },
+  { key: 'CRITICAL_ALERTS', label: 'Critical Alerts' },
+  { key: 'MAINTENANCE', label: 'Maintenance' },
+  { key: 'MOVEMENTS', label: 'Movements' },
+]
+
 // Sidebar nav — Profile lives in the topbar's profile dropdown instead, not here.
 const NAV_ITEMS = [
   { label: 'Dashboard', icon: faTableCellsLarge, to: '/dashboard' },

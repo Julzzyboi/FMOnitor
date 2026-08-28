@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -10,9 +10,17 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
 function ProfileDropdown() {
   const [open, setOpen] = useState(false)
+  const [user, setUser] = useState(null)
   const close = () => setOpen(false)
   const { triggerRef, menuRef, style } = useFloatingPosition({ open, onClose: close, align: 'right' })
   useClickOutside([triggerRef, menuRef], close)
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/user`, { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then(setUser)
+      .catch(() => setUser(null))
+  }, [])
 
   const handleLogout = () => {
     window.location.href = `${API_BASE_URL}/logout`
@@ -27,7 +35,16 @@ function ProfileDropdown() {
         aria-label="Profile menu"
         className="flex h-[45px] w-[45px] cursor-pointer items-center justify-center rounded-full text-[#fccb35] transition-colors duration-150 hover:bg-white/10 lg:text-black lg:hover:bg-gray-100"
       >
-        <FontAwesomeIcon icon={faCircleUser} className="h-7 w-7" />
+        {user?.picture ? (
+          <img
+            src={user.picture}
+            alt={user.name || 'Profile'}
+            referrerPolicy="no-referrer"
+            className="h-9 w-9 rounded-full object-cover"
+          />
+        ) : (
+          <FontAwesomeIcon icon={faCircleUser} className="h-7 w-7" />
+        )}
       </button>
 
       {open &&
