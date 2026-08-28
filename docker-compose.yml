@@ -1,0 +1,25 @@
+services:
+  backend:
+    build:
+      context: ./FMOnitor-WebBE/FMOnitor-WebBE
+    container_name: fmonitor-webbe
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./FMOnitor-WebFE/fmonitor-webfe
+      args:
+        # Baked into the compiled JS at build time - this must be the browser's
+        # own address (backend runs on the host too, via the port mapping above),
+        # not a Docker-internal service name like "backend" the browser can't resolve.
+        VITE_API_BASE_URL: http://localhost:8080
+    container_name: fmonitor-webfe
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

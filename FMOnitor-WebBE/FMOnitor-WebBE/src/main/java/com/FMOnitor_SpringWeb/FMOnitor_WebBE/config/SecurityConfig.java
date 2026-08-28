@@ -1,4 +1,4 @@
-package com.FMOnitor_SpringWeb.FMOnitor_WebBE.controller;
+package com.FMOnitor_SpringWeb.FMOnitor_WebBE.config;
 
 import java.util.List;
 
