@@ -1,26 +1,38 @@
 import { useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faXmark } from '@fortawesome/free-solid-svg-icons'
+import { faXmark, faPaperPlane } from '@fortawesome/free-solid-svg-icons'
 import { ROLES } from './mockUsers'
-import AvatarPicker from './AvatarPicker'
 
-function AddUserModal({ onCancel, onAdd }) {
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
-  const [email, setEmail] = useState('')
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function parseEmails(raw) {
+  return raw
+    .split(',')
+    .map((e) => e.trim())
+    .filter(Boolean)
+}
+
+function AddUserModal({ onCancel, onInvite }) {
+  const [emailsInput, setEmailsInput] = useState('')
   const [role, setRole] = useState(ROLES[ROLES.length - 1])
-  const [avatarUrl, setAvatarUrl] = useState(null)
-
-  const fullName = `${firstName.trim()} ${lastName.trim()}`.trim()
+  const [error, setError] = useState('')
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    onAdd({
-      name: fullName,
-      email: email.trim(),
-      role,
-      avatarUrl,
-    })
+
+    const emails = parseEmails(emailsInput)
+    if (emails.length === 0) {
+      setError('Enter at least one email')
+      return
+    }
+    const invalid = emails.find((email) => !EMAIL_PATTERN.test(email))
+    if (invalid) {
+      setError(`"${invalid}" doesn't look like a valid email`)
+      return
+    }
+
+    setError('')
+    onInvite({ emails, role })
   }
 
   return (
@@ -29,10 +41,10 @@ function AddUserModal({ onCancel, onAdd }) {
 
       <form
         onSubmit={handleSubmit}
-        className="relative w-full max-w-md animate-[fade-in-up_0.25s_ease-out_forwards] rounded-2xl bg-white p-6 shadow-2xl opacity-0 sm:p-8"
+        className="relative w-full max-w-lg animate-[fade-in-up_0.25s_ease-out_forwards] rounded-2xl bg-white p-6 shadow-2xl opacity-0 sm:p-8"
       >
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-gray-900">Add User</h3>
+          <h3 className="text-lg font-bold text-gray-900">Invite people</h3>
           <button
             type="button"
             onClick={onCancel}
@@ -43,76 +55,45 @@ function AddUserModal({ onCancel, onAdd }) {
           </button>
         </div>
 
-        <div className="mt-6">
-          <AvatarPicker avatarUrl={avatarUrl} name={fullName} onChange={setAvatarUrl} />
-        </div>
-
-        <div className="mt-6 flex flex-col gap-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">First Name</span>
-              <input
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                required
-                className="rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 focus:border-[#fccb35] focus:outline-none focus:ring-2 focus:ring-[#fccb35]/30"
-              />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Last Name</span>
-              <input
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                required
-                className="rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 focus:border-[#fccb35] focus:outline-none focus:ring-2 focus:ring-[#fccb35]/30"
-              />
-            </label>
+        <div className="mt-6 flex flex-col gap-1.5 sm:flex-row sm:items-stretch sm:gap-0">
+          <div className="flex flex-1 items-center rounded-lg border border-gray-200 focus-within:border-[#fccb35] focus-within:ring-2 focus-within:ring-[#fccb35]/30 sm:rounded-r-none sm:border-r-0">
+            <input
+              type="text"
+              value={emailsInput}
+              onChange={(e) => setEmailsInput(e.target.value)}
+              placeholder="Email or group, separated by commas"
+              autoFocus
+              className="w-full bg-transparent px-3.5 py-2.5 text-sm text-gray-900 outline-none placeholder:text-gray-400"
+            />
           </div>
 
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Email</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 focus:border-[#fccb35] focus:outline-none focus:ring-2 focus:ring-[#fccb35]/30"
-            />
-          </label>
-
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Role</span>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 focus:border-[#fccb35] focus:outline-none focus:ring-2 focus:ring-[#fccb35]/30"
-            >
-              {ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="mt-8 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="cursor-pointer rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-600 transition-colors duration-150 hover:bg-gray-50"
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            className="border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 focus:outline-none sm:border-x-0"
           >
-            Cancel
-          </button>
+            {ROLES.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+
           <button
             type="submit"
-            className="cursor-pointer rounded-lg bg-[#fccb35] px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0"
+            className="flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-[#fccb35] px-5 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 sm:rounded-l-none"
           >
-            Add
+            <FontAwesomeIcon icon={faPaperPlane} className="h-3.5 w-3.5" />
+            Invite
           </button>
         </div>
+
+        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+
+        <p className="mt-3 text-xs text-gray-400">
+          Everyone invited gets the <span className="font-semibold text-gray-500">{role}</span> role. They'll receive
+          an email with a link to sign in and activate their account.
+        </p>
       </form>
     </div>
   )

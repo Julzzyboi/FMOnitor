@@ -11,15 +11,36 @@ import AddUserModal from './AddUserModal'
 import UserDetailsModal from './UserDetailsModal'
 import ConfirmModal from './ConfirmModal'
 import Toast from './Toast'
-import { MOCK_USERS, ROLES, FILTERABLE_STATUSES } from './mockUsers'
+import { ROLES, FILTERABLE_STATUSES } from './mockUsers'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 const PAGE_SIZE = 8
+
+function formatDate(isoString) {
+  const d = new Date(isoString)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+// Backend field names (googleSub/pictureUrl/createdAt) don't match what this
+// page already expects (avatarUrl/dateCreated) - map once at the fetch boundary.
+function mapAccount(account) {
+  return {
+    id: account.id,
+    name: account.name,
+    email: account.email,
+    role: account.role,
+    status: account.status,
+    dateCreated: formatDate(account.createdAt),
+    avatarUrl: account.pictureUrl,
+  }
+}
 
 const CONFIRM_CONFIG = {
   add: {
-    title: 'Add this user?',
-    message: 'A new account will be created with the details you entered.',
-    confirmLabel: 'Add',
+    title: 'Send invite?',
+    message: "Each person will get an email with a link to sign in and activate their account.",
+    confirmLabel: 'Invite',
     variant: 'success',
   },
   save: {
@@ -43,7 +64,8 @@ const CONFIRM_CONFIG = {
 }
 
 function AccountsContent() {
-  const [users, setUsers] = useState(MOCK_USERS)
+  const [users, setUsers] = useState([])
+  const [currentUserRole, setCurrentUserRole] = useState(null)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('All')
   const [statusFilter, setStatusFilter] = useState('All')
@@ -61,6 +83,20 @@ function AccountsContent() {
     const timer = setTimeout(() => setToast(null), 3000)
     return () => clearTimeout(timer)
   }, [toast])
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/accounts`, { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((accounts) => setUsers(accounts.map(mapAccount)))
+      .catch(() => setUsers([]))
+
+    fetch(`${API_BASE_URL}/api/user`, { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((me) => setCurrentUserRole(me?.role ?? null))
+      .catch(() => setCurrentUserRole(null))
+  }, [])
+
+  const canInvite = currentUserRole === 'Superadmin'
 
   const counts = useMemo(() => {
     const visible = users.filter((u) => u.status !== 'Deleted' && u.status !== 'Disabled')
@@ -125,26 +161,61 @@ function AccountsContent() {
 
   const cancelPendingAction = () => setPendingAction(null)
 
-  const confirmPendingAction = () => {
+  const confirmPendingAction = async () => {
     if (!pendingAction) return
     const { type, payload } = pendingAction
 
     if (type === 'add') {
-      const pad = (n) => String(n).padStart(2, '0')
-      const now = new Date()
-      const dateCreated = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
-      const newUser = {
-        id: Date.now(),
-        name: payload.name,
-        email: payload.email,
-        role: payload.role,
-        status: 'Unregistered',
-        dateCreated,
-        avatarUrl: payload.avatarUrl,
+      const { emails, role } = payload
+      const createdUsers = []
+      let alreadyExists = 0
+      let failed = 0
+
+      for (const email of emails) {
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/accounts/invite`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, role }),
+          })
+
+          if (res.status === 403) {
+            // Applies to every email in this batch the same way - no point continuing the loop.
+            setToast({ message: 'Only Superadmins can invite new users', type: 'danger' })
+            setPendingAction(null)
+            return
+          }
+          if (res.status === 409) {
+            alreadyExists += 1
+            continue
+          }
+          if (!res.ok) {
+            failed += 1
+            continue
+          }
+
+          createdUsers.push(await res.json())
+        } catch {
+          failed += 1
+        }
       }
-      setUsers((prev) => [newUser, ...prev])
-      setShowAddModal(false)
-      setToast({ message: 'User added successfully', type: 'success' })
+
+      if (createdUsers.length > 0) {
+        setUsers((prev) => [...createdUsers.map(mapAccount), ...prev])
+      }
+      if (createdUsers.length > 0 && alreadyExists === 0 && failed === 0) {
+        setShowAddModal(false)
+      }
+
+      const parts = []
+      if (createdUsers.length > 0) parts.push(`${createdUsers.length} invite${createdUsers.length > 1 ? 's' : ''} sent`)
+      if (alreadyExists > 0) parts.push(`${alreadyExists} already registered`)
+      if (failed > 0) parts.push(`${failed} failed`)
+      setToast({
+        message: parts.join(', ') || 'Nothing to invite',
+        type: createdUsers.length > 0 && failed === 0 ? 'success' : 'danger',
+      })
     } else if (type === 'save') {
       setUsers((prev) => prev.map((u) => (u.id === payload.id ? payload : u)))
       setEditingUser(null)
@@ -185,14 +256,16 @@ function AccountsContent() {
           <FontAwesomeIcon icon={faDownload} className="h-3.5 w-3.5" />
           Download
         </button>
-        <button
-          type="button"
-          onClick={() => setShowAddModal(true)}
-          className="flex cursor-pointer items-center gap-2 rounded-lg bg-[#fccb35] px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-gray-900 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0"
-        >
-          <FontAwesomeIcon icon={faUserPlus} className="h-3.5 w-3.5" />
-          Add User
-        </button>
+        {canInvite && (
+          <button
+            type="button"
+            onClick={() => setShowAddModal(true)}
+            className="flex cursor-pointer items-center gap-2 rounded-lg bg-[#fccb35] px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-gray-900 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0"
+          >
+            <FontAwesomeIcon icon={faUserPlus} className="h-3.5 w-3.5" />
+            Add User
+          </button>
+        )}
       </div>
 
       <div className="animate-[fade-in-up_0.4s_ease-out_0.05s_forwards] opacity-0">
@@ -289,7 +362,7 @@ function AccountsContent() {
         </div>
       </div>
 
-      {showAddModal && <AddUserModal onCancel={() => setShowAddModal(false)} onAdd={requestAdd} />}
+      {showAddModal && <AddUserModal onCancel={() => setShowAddModal(false)} onInvite={requestAdd} />}
 
       {editingUser && (
         <EditUserModal user={editingUser} onCancel={() => setEditingUser(null)} onSave={requestSave} />

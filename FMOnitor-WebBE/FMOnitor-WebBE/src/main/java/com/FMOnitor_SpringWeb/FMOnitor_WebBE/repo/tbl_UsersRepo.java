@@ -8,4 +8,5 @@ import java.util.Optional;
 
 public interface tbl_UsersRepo extends JpaRepository<tbl_Users, Long> {
     Optional<tbl_Users> findByGoogleSub(String googleSub);
+    Optional<tbl_Users> findByEmail(String email);
 }

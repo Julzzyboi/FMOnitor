@@ -27,8 +27,9 @@ public class tbl_Users {
     private Long id;
 
     // Google's "sub" claim - a stable, immutable ID for the account.
-    // This is what a user is actually keyed on, not their email (which can change).
-    @Column(name = "google_sub", nullable = false, unique = true)
+    // Null until an invited (status=Unregistered) user actually logs in for
+    // the first time and claims this row.
+    @Column(name = "google_sub", unique = true)
     private String googleSub;
 
     @Column(nullable = false, unique = true)
@@ -41,6 +42,11 @@ public class tbl_Users {
 
     @Column(nullable = false)
     private String role;
+
+    // "Active" | "Inactive" | "Unregistered" | "Disabled" | "Deleted" - matches
+    // the frontend's Accounts page status vocabulary exactly.
+    @Column(nullable = false)
+    private String status;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

@@ -20,7 +20,9 @@ import java.time.Instant;
 @Service
 public class CustomOAuth2UserService extends OidcUserService {
 
-    private static final String DEFAULT_ROLE = "USER";
+    private static final String DEFAULT_ROLE = "Requestor";
+    private static final String STATUS_ACTIVE = "Active";
+    private static final String STATUS_UNREGISTERED = "Unregistered";
 
     private final tbl_UsersRepo usersRepo;
     private final tbl_LoginLogsRepo loginLogsRepo;
@@ -39,13 +41,25 @@ public class CustomOAuth2UserService extends OidcUserService {
         String name = oidcUser.getAttribute("name");
         String picture = oidcUser.getAttribute("picture");
 
-        tbl_Users user = usersRepo.findByGoogleSub(googleSub).orElseGet(tbl_Users::new);
+        // Returning user (has logged in before) -> found by googleSub.
+        // Invited-but-never-logged-in user -> has no googleSub yet, only findable by email;
+        // this login is what "claims" that pending row instead of creating a duplicate.
+        // Brand new, uninvited sign-in -> found by neither, gets a fresh row.
+        tbl_Users user = usersRepo.findByGoogleSub(googleSub)
+            .or(() -> usersRepo.findByEmail(email))
+            .orElseGet(tbl_Users::new);
+
         user.setGoogleSub(googleSub);
         user.setEmail(email);
         user.setName(name);
         user.setPictureUrl(picture);
         if (user.getRole() == null) {
             user.setRole(DEFAULT_ROLE);
+        }
+        // Claiming a pending invite (or a brand new signup) activates the account.
+        // An admin-set status (Inactive/Disabled) is left alone on a returning login.
+        if (user.getStatus() == null || STATUS_UNREGISTERED.equals(user.getStatus())) {
+            user.setStatus(STATUS_ACTIVE);
         }
         usersRepo.save(user);
 

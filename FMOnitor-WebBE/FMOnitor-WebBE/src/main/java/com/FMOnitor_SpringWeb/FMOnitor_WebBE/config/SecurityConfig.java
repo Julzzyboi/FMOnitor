@@ -45,6 +45,11 @@ public class SecurityConfig {
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception{
 
         http.cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            // This is a JSON API consumed by a separate SPA, not server-rendered forms -
+            // CSRF protection is meant for the latter. CORS above already restricts which
+            // origins can call these endpoints at all. Without this, every POST/PUT/DELETE
+            // gets a generic 403 from Spring's default CSRF filter before reaching any controller.
+            .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/products")).permitAll()
                 .anyRequest().authenticated())
