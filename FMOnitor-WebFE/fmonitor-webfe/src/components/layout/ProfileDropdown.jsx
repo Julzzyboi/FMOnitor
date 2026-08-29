@@ -5,6 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faCircleUser, faUser, faRightFromBracket } from '@fortawesome/free-solid-svg-icons'
 import useClickOutside from '../../hooks/useClickOutside'
 import useFloatingPosition from '../../hooks/useFloatingPosition'
+import { performLogout } from '../../utils/logout'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
@@ -23,7 +24,7 @@ function ProfileDropdown() {
   }, [])
 
   const handleLogout = () => {
-    window.location.href = `${API_BASE_URL}/logout`
+    performLogout()
   }
 
   return (

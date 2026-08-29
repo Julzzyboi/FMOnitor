@@ -28,6 +28,26 @@ function ActionPill({ action }) {
   )
 }
 
+function pad(n) {
+  return String(n).padStart(2, '0')
+}
+
+// 12-hour display format (e.g. "2026-08-30 11:51:15 PM"). The date portion
+// stays zero-padded/ISO-ish for readability, but 12-hour time with an AM/PM
+// suffix isn't safely sortable as plain text - "12:00 AM" (midnight) sorts
+// AFTER "01-11 AM" alphabetically even though it comes first chronologically.
+// So this is for DISPLAY only; sortKey (a real epoch number) is what the
+// table actually sorts by.
+function formatTimestamp12h(date) {
+  const hours24 = date.getHours()
+  const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12
+  const ampm = hours24 < 12 ? 'AM' : 'PM'
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+    `${pad(hours12)}:${pad(date.getMinutes())}:${pad(date.getSeconds())} ${ampm}`
+  )
+}
+
 // Real login logs and the (still mock, until a real feature exists) equipment
 // logs have genuinely different shapes - this maps both into the same
 // Login ID / User / Email / Role / Action / Timestamp row shape.
@@ -39,7 +59,8 @@ function mapAuditLog(log) {
     email: '—',
     role: '—',
     action: log.category?.replace('_', ' ') || 'ACTIVITY',
-    timestamp: log.timestamp,
+    timestamp: formatTimestamp12h(log.timestamp),
+    sortKey: log.timestamp.getTime(),
     category: log.category,
   }
 }
@@ -53,7 +74,8 @@ function mapLoginLog(log) {
     email: log.email,
     role: log.role,
     action: log.action,
-    timestamp: date.toLocaleString('sv-SE', { hour12: false }).replace('T', ' '),
+    timestamp: formatTimestamp12h(date),
+    sortKey: date.getTime(),
     category: 'LOGIN_ACTIVITY',
   }
 }
@@ -80,7 +102,7 @@ function History() {
       .then((res) => (res.ok ? res.json() : []))
       .then((loginLogs) => {
         const combined = [...loginLogs.map(mapLoginLog), ...MOCK_AUDIT_LOGS.map(mapAuditLog)]
-        combined.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1))
+        combined.sort((a, b) => b.sortKey - a.sortKey)
         setLogs(combined)
       })
       .catch(() => setLogs(MOCK_AUDIT_LOGS.map(mapAuditLog)))

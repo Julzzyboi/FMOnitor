@@ -8,6 +8,8 @@ import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_UsersRepo;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
@@ -20,16 +22,23 @@ import java.time.Instant;
 // available here, before the security context is fully cleared.
 public class LogoutLogHandler implements LogoutSuccessHandler {
 
+    static final String REFRESH_COOKIE_NAME = "refresh_token";
+
     private static final String DEFAULT_ROLE = "USER";
 
     private final tbl_LoginLogsRepo loginLogsRepo;
     private final tbl_UsersRepo usersRepo;
+    private final RefreshTokenService refreshTokenService;
     private final String frontendUrl;
+    private final boolean secureCookie;
 
-    public LogoutLogHandler(tbl_LoginLogsRepo loginLogsRepo, tbl_UsersRepo usersRepo, String frontendUrl) {
+    public LogoutLogHandler(tbl_LoginLogsRepo loginLogsRepo, tbl_UsersRepo usersRepo,
+                             RefreshTokenService refreshTokenService, String frontendUrl, boolean secureCookie) {
         this.loginLogsRepo = loginLogsRepo;
         this.usersRepo = usersRepo;
+        this.refreshTokenService = refreshTokenService;
         this.frontendUrl = frontendUrl;
+        this.secureCookie = secureCookie;
     }
 
     @Override
@@ -39,7 +48,25 @@ public class LogoutLogHandler implements LogoutSuccessHandler {
             String email = oidcUser.getAttribute("email");
             String name = oidcUser.getAttribute("name");
             String picture = oidcUser.getAttribute("picture");
-            String role = usersRepo.findByGoogleSub(googleSub).map(tbl_Users::getRole).orElse(DEFAULT_ROLE);
+
+            tbl_Users user = usersRepo.findByGoogleSub(googleSub).orElse(null);
+            String role = user != null ? user.getRole() : DEFAULT_ROLE;
+
+            // The session cookie is what this app actually relies on day-to-day, and
+            // Spring Security already invalidates that. But the JWT refresh token is a
+            // second, independent credential handed out at the same login - logging out
+            // should kill it too, not leave it usable for another 7 days regardless.
+            if (user != null) {
+                refreshTokenService.revokeAllForUser(user.getId());
+            }
+            ResponseCookie expiredCookie = ResponseCookie.from(REFRESH_COOKIE_NAME, "")
+                .httpOnly(true)
+                .secure(secureCookie)
+                .sameSite("Lax")
+                .path("/api/auth")
+                .maxAge(0)
+                .build();
+            response.addHeader(HttpHeaders.SET_COOKIE, expiredCookie.toString());
 
             loginLogsRepo.save(new tbl_LoginLogs(null, email, name, picture, role, "LOGGED OUT", Instant.now()));
         }

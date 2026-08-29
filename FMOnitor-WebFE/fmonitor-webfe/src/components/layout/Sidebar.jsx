@@ -3,12 +3,11 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faRightFromBracket } from '@fortawesome/free-solid-svg-icons'
 import NAV_ITEMS from '../../constants/navItems'
 import logoAdmin from '../../assets/logoAdmin.png'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+import { performLogout } from '../../utils/logout'
 
 function Sidebar({ open, onClose }) {
   const handleLogout = () => {
-    window.location.href = `${API_BASE_URL}/logout`
+    performLogout()
   }
 
   return (

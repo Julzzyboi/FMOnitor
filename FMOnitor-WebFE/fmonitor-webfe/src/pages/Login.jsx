@@ -7,6 +7,12 @@ import buildingBg from '../assets/building-bg.png'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
+// Floor for how long the "signing you in" loader stays up after a successful
+// Google login, even if the /api/user confirmation comes back almost
+// instantly - without this, a fast network made the loader flash for only a
+// few ms, which read as no transition at all rather than a smooth one.
+const MIN_LOADING_DISPLAY_MS = 600
+
 function GoogleIcon() {
   return (
     <svg className="h-[18px] w-[18px]" viewBox="0 0 48 48" aria-hidden="true">
@@ -18,30 +24,53 @@ function GoogleIcon() {
   )
 }
 
+// Captured once, at MODULE load time - not inside the component. This app
+// renders under <StrictMode>, which deliberately mounts every component
+// twice in dev (mount -> discard -> mount again) to surface effects that
+// aren't idempotent. The token-handling effect below used to read the URL
+// and then strip it via history.replaceState - fine on its own, but the
+// *second* StrictMode mount would then find an already-stripped URL and
+// conclude (wrongly) that there was never a token, flashing the sign-in
+// button while the *first* mount's abandoned fetch silently finished the
+// login and navigated away underneath it. Reading the token once here, before
+// any component instance exists to be duplicated, means every mount attempt
+// - however many StrictMode runs - agrees on the same answer.
+const initialToken = new URLSearchParams(window.location.search).get('token')
+if (initialToken) {
+  const params = new URLSearchParams(window.location.search)
+  params.delete('token')
+  const newSearch = params.toString()
+  window.history.replaceState({}, '', window.location.pathname + (newSearch ? `?${newSearch}` : ''))
+}
+
 function Login() {
   const navigate = useNavigate()
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => !!initialToken)
+  const [leaving, setLeaving] = useState(false)
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const token = params.get('token')
-
-    if (!token) {
+    if (!initialToken) {
       // Plain visit to the login page - just show the sign-in button, no auto-redirect.
       setLoading(false)
       return
     }
 
-    localStorage.setItem('jwt', token)
-    params.delete('token')
-    const newSearch = params.toString()
-    window.history.replaceState({}, '', window.location.pathname + (newSearch ? `?${newSearch}` : ''))
+    localStorage.setItem('jwt', initialToken)
 
     // Just completed the Google OAuth round trip - confirm the session is valid, then go straight to the dashboard.
+    const startedAt = Date.now()
     fetch(`${API_BASE_URL}/api/user`, { credentials: 'include' })
       .then((res) => {
         if (res.ok) {
-          navigate('/dashboard', { replace: true })
+          const elapsed = Date.now() - startedAt
+          const remaining = Math.max(0, MIN_LOADING_DISPLAY_MS - elapsed)
+          // Wait out the minimum display floor, THEN fade this loader out,
+          // THEN navigate - an instant unmount here was the hard, jarring cut
+          // straight into the dashboard shell popping in with no transition.
+          setTimeout(() => {
+            setLeaving(true)
+            setTimeout(() => navigate('/dashboard', { replace: true }), 300)
+          }, remaining)
         } else {
           setLoading(false)
         }
@@ -66,11 +95,16 @@ function Login() {
       <WaveFooter />
 
       {loading ? (
-        <div className="relative z-10 flex flex-col items-center gap-4 animate-[fade-in_0.4s_ease-out_forwards]">
+        <div
+          className={`relative z-10 flex flex-col items-center gap-4 transition-opacity duration-300 ${
+            leaving ? 'opacity-0' : 'opacity-100 animate-[fade-in_0.4s_ease-out_forwards]'
+          }`}
+        >
           <img src={logo} alt="FMOnitor" className="h-20 w-20 animate-pulse" />
           <div className="h-1 w-24 overflow-hidden rounded-full bg-amber-100">
             <div className="h-full w-1/2 animate-[loading-bar_1s_ease-in-out_infinite] rounded-full bg-amber-400" />
           </div>
+          <p className="text-sm font-medium text-gray-500">Signing you in…</p>
         </div>
       ) : (
         <div className="relative z-10 w-[90%] max-w-md animate-[fade-in-up_0.6s_ease-out_forwards] rounded-2xl bg-white p-8 text-center opacity-0 shadow-[0_18px_42px_-11px_rgba(0,0,0,0.25)] sm:p-12">

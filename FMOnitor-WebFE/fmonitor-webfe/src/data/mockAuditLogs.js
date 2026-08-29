@@ -17,14 +17,6 @@ const JOBS = [
   { venue: 'Benavides Auditorium', equipment: 'Stage Truss', category: 'MOVEMENTS' },
 ]
 
-function pad(n) {
-  return String(n).padStart(2, '0')
-}
-
-function formatTimestamp(date) {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
-}
-
 function buildMockAuditLogs() {
   const now = new Date('2026-08-27T15:00:00')
   const total = 36
@@ -45,7 +37,10 @@ function buildMockAuditLogs() {
 
   return logs.map((log, index) => ({
     id: `LOG-${String(9921 - index).padStart(4, '0')}`,
-    timestamp: formatTimestamp(log.timestamp),
+    // Kept as a real Date (not pre-formatted) - History.jsx formats it for
+    // display and needs the actual Date to sort correctly alongside real
+    // login logs.
+    timestamp: log.timestamp,
     hauler: log.hauler,
     venue: log.venue,
     equipment: log.equipment,

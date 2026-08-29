@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { config } from '@fortawesome/fontawesome-svg-core'
 import './index.css'
+import './utils/sessionGuard'
 import App from './App.jsx'
 
 // @fortawesome/react-fontawesome auto-injects its own CSS (.svg-inline--fa { height: 1em })

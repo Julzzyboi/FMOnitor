@@ -2,6 +2,7 @@ package com.FMOnitor_SpringWeb.FMOnitor_WebBE.config;
 
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -10,6 +11,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -18,9 +20,11 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_LoginLogsRepo;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_UsersRepo;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.CustomOAuth2UserService;
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.JwtAuthenticationFilter;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.JwtAuthenticationSuccessHandler;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.JwtService;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.LogoutLogHandler;
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.RefreshTokenService;
 
 @Configuration
 @EnableWebSecurity
@@ -29,16 +33,25 @@ public class SecurityConfig {
     private static final String FRONTEND_URL = "http://localhost:5173";
 
     private final JwtService jwtService;
+    private final RefreshTokenService refreshTokenService;
     private final CustomOAuth2UserService customOAuth2UserService;
     private final tbl_LoginLogsRepo loginLogsRepo;
     private final tbl_UsersRepo usersRepo;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final boolean secureCookie;
 
-    public SecurityConfig(JwtService jwtService, CustomOAuth2UserService customOAuth2UserService,
-                           tbl_LoginLogsRepo loginLogsRepo, tbl_UsersRepo usersRepo) {
+    public SecurityConfig(JwtService jwtService, RefreshTokenService refreshTokenService,
+                           CustomOAuth2UserService customOAuth2UserService,
+                           tbl_LoginLogsRepo loginLogsRepo, tbl_UsersRepo usersRepo,
+                           JwtAuthenticationFilter jwtAuthenticationFilter,
+                           @Value("${app.cookie.secure}") boolean secureCookie) {
         this.jwtService = jwtService;
+        this.refreshTokenService = refreshTokenService;
         this.customOAuth2UserService = customOAuth2UserService;
         this.loginLogsRepo = loginLogsRepo;
         this.usersRepo = usersRepo;
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.secureCookie = secureCookie;
     }
 
     @Bean
@@ -52,17 +65,26 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/products")).permitAll()
+                // Not session/JWT-authenticated like everything else here - its own auth
+                // check is the httpOnly refresh cookie, validated inside the controller
+                // itself (that's the whole point: it has to keep working after the
+                // access token has expired and the session may be long gone too).
+                .requestMatchers(PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/auth/refresh")).permitAll()
                 .anyRequest().authenticated())
             .exceptionHandling(ex -> ex.defaultAuthenticationEntryPointFor(
                 new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
                 PathPatternRequestMatcher.pathPattern("/api/**")))
             .oauth2Login(oauth2 -> oauth2
                 .userInfoEndpoint(userInfo -> userInfo.oidcUserService(customOAuth2UserService))
-                .successHandler(new JwtAuthenticationSuccessHandler(jwtService, FRONTEND_URL)))
+                .successHandler(new JwtAuthenticationSuccessHandler(jwtService, refreshTokenService, usersRepo, FRONTEND_URL, secureCookie)))
             .logout(logout -> logout
                 .logoutRequestMatcher(PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/logout"))
-                .logoutSuccessHandler(new LogoutLogHandler(loginLogsRepo, usersRepo, FRONTEND_URL))
-                .deleteCookies("JSESSIONID"));
+                .logoutSuccessHandler(new LogoutLogHandler(loginLogsRepo, usersRepo, refreshTokenService, FRONTEND_URL, secureCookie))
+                .deleteCookies("JSESSIONID"))
+            // Runs before the session-based login machinery, so a request carrying a
+            // Bearer token gets checked (and its expiration enforced) independently
+            // of whether a session cookie is also present.
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 
