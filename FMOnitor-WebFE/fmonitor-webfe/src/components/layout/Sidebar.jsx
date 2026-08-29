@@ -24,7 +24,7 @@ function Sidebar({ open, onClose }) {
 
       {/* sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 transform flex-col bg-[#141414] transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-screen w-64 transform flex-col bg-[#141414] transition-transform duration-300 ease-in-out lg:sticky lg:top-0 lg:translate-x-0 ${
           open ? 'translate-x-0' : 'max-lg:-translate-x-full'
         }`}
       >
