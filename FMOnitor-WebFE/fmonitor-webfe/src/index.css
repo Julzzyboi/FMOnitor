@@ -1,15 +1,16 @@
 @import 'tailwindcss';
 
-html,
-body,
-#root {
-  height: 100%;
-}
-
+/* No height:100% here on purpose — every full-height layout in this app uses
+   min-h-screen/h-screen (viewport-relative vh units), which don't need it.
+   overflow-x: hidden (any non-'visible' overflow, really) turns an element
+   into a CSS "scroll container", which breaks position:sticky for descendants
+   (their stickiness ends up relative to that container instead of the actual
+   window scroll). `clip` prevents the same horizontal overflow/scrollbar
+   without creating a scroll container, so sticky still works correctly. */
 html,
 body {
+  overflow-x: clip;
   max-width: 100%;
-  overflow-x: hidden;
 }
 
 body {
