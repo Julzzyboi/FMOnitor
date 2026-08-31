@@ -16,7 +16,7 @@ profile
 xcuserdata
 **/.generated/
 Flutter/App.framework
-Flutter/Flutter.framework
+Flutter/Engine.framework
 Flutter/Flutter.podspec
 Flutter/Generated.xcconfig
 Flutter/ephemeral/
