@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/FMOnitor-WebBE.iml" filepath="$PROJECT_DIR$/.idea/FMOnitor-WebBE.iml" />
+      <module fileurl="file://$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE.iml" filepath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE.iml" />
     </modules>
   </component>
 </project>
