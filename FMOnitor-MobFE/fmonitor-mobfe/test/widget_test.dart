@@ -108,6 +108,35 @@ void main() {
     expect(find.text('Home'), findsNothing);
   });
 
+  testWidgets('QR Scan page shows the frame, flashlight toggle, and passcode button', (WidgetTester tester) async {
+    await tester.pumpWidget(const FMonitorApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sign in with Google'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('qr_fab')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Scan QR Code'), findsOneWidget);
+    expect(find.text('Flashlight'), findsOneWidget);
+    expect(find.text('Request Passcode'), findsOneWidget);
+
+    // Flashlight starts off, toggles on when tapped.
+    expect(find.byIcon(Icons.flashlight_off_rounded), findsOneWidget);
+    await tester.ensureVisible(find.text('Flashlight'));
+    await tester.pump();
+    await tester.tap(find.text('Flashlight'));
+    await tester.pump();
+    expect(find.byIcon(Icons.flashlight_on_rounded), findsOneWidget);
+
+    // Request Passcode is currently inert - tapping it does nothing.
+    await tester.ensureVisible(find.text('Request Passcode'));
+    await tester.pump();
+    await tester.tap(find.text('Request Passcode'));
+    await tester.pump();
+    expect(find.text('Scan QR Code'), findsOneWidget);
+  });
+
   testWidgets('Tapping Privacy Policy shows the placeholder message', (WidgetTester tester) async {
     await tester.pumpWidget(const FMonitorApp());
     await tester.pumpAndSettle();

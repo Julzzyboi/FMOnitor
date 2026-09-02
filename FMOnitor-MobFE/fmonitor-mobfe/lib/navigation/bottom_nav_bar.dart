@@ -59,95 +59,76 @@ class AppBottomNavBar extends StatelessWidget {
               // PhysicalShape's elevation shadow doesn't composite opaquely
               // with this notched path on every renderer (it let content
               // bleed through the whole bar, not just the notch) - a plain
-              // ClipPath + Container guarantees a solid fill, with the
-              // shadow approximated separately behind it (a plain rounded
-              // rect; the blur hides the difference from the actual notch).
-              child: Stack(
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(30),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.3),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
+              // ClipPath + Container guarantees a solid fill instead. No
+              // drop shadow - just the flat notched shape.
+              child: ClipPath(
+                clipper: const _NotchedPillClipper(
+                  borderRadius: 30,
+                  // The QR button's center sits 8px below the bar's own
+                  // top edge (see the FAB's Positioned math below) - the
+                  // notch is centered there, sized a bit past the
+                  // button's own white ring so a sliver of background
+                  // shows through.
+                  notchCenterY: 8,
+                  notchRadius: (_fabSize / 2) + 8,
+                ),
+                child: Container(
+                  color: _barColor,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Row(
+                      children: [
+                        // Each half is exactly half the bar's width, so the
+                        // reserved QR gap always lands dead-center - matching
+                        // the FAB above, which is centered on the whole bar.
+                        // Splitting the row this way (rather than one flat
+                        // spaceBetween row) is what keeps the gap on both
+                        // sides of the QR button equal, regardless of how
+                        // wide each label is.
+                        Expanded(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              _NavItem(
+                                icon: FontAwesomeIcons.house,
+                                label: 'Home',
+                                selected: currentIndex == 0,
+                                onTap: () => onSelect(0),
+                              ),
+                              _NavItem(
+                                icon: FontAwesomeIcons.calendarDays,
+                                label: 'Calendar',
+                                selected: currentIndex == 1,
+                                onTap: () => onSelect(1),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Reserved, fixed gap - the QR FAB floats above this spot.
+                        const SizedBox(width: _fabSize - 8),
+                        Expanded(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              _NavItem(
+                                icon: FontAwesomeIcons.boxesStacked,
+                                label: 'Inventory',
+                                selected: currentIndex == 3,
+                                onTap: () => onSelect(3),
+                              ),
+                              _NavItem(
+                                icon: FontAwesomeIcons.clockRotateLeft,
+                                label: 'History',
+                                selected: currentIndex == 4,
+                                onTap: () => onSelect(4),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  ClipPath(
-                    clipper: const _NotchedPillClipper(
-                      borderRadius: 30,
-                      // The QR button's center sits 8px below the bar's own
-                      // top edge (see the FAB's Positioned math below) - the
-                      // notch is centered there, sized a bit past the
-                      // button's own white ring so a sliver of background
-                      // shows through.
-                      notchCenterY: 8,
-                      notchRadius: (_fabSize / 2) + 8,
-                    ),
-                    child: Container(
-                      color: _barColor,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: Row(
-                          children: [
-                            // Each half is exactly half the bar's width, so the
-                            // reserved QR gap always lands dead-center - matching
-                            // the FAB above, which is centered on the whole bar.
-                            // Splitting the row this way (rather than one flat
-                            // spaceBetween row) is what keeps the gap on both
-                            // sides of the QR button equal, regardless of how
-                            // wide each label is.
-                            Expanded(
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceEvenly,
-                                children: [
-                                  _NavItem(
-                                    icon: FontAwesomeIcons.house,
-                                    label: 'Home',
-                                    selected: currentIndex == 0,
-                                    onTap: () => onSelect(0),
-                                  ),
-                                  _NavItem(
-                                    icon: FontAwesomeIcons.calendarDays,
-                                    label: 'Calendar',
-                                    selected: currentIndex == 1,
-                                    onTap: () => onSelect(1),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            // Reserved, fixed gap - the QR FAB floats above this spot.
-                            const SizedBox(width: _fabSize - 8),
-                            Expanded(
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceEvenly,
-                                children: [
-                                  _NavItem(
-                                    icon: FontAwesomeIcons.boxesStacked,
-                                    label: 'Inventory',
-                                    selected: currentIndex == 3,
-                                    onTap: () => onSelect(3),
-                                  ),
-                                  _NavItem(
-                                    icon: FontAwesomeIcons.clockRotateLeft,
-                                    label: 'History',
-                                    selected: currentIndex == 4,
-                                    onTap: () => onSelect(4),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),

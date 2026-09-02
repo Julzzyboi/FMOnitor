@@ -23,13 +23,6 @@ class QrFabButton extends StatelessWidget {
           shape: BoxShape.circle,
           color: AppColors.yellow,
           border: Border.all(color: AppColors.waveBlack, width: 4),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-            ),
-          ],
         ),
         child: const Center(
           child: FaIcon(FontAwesomeIcons.qrcode, size: 24, color: AppColors.waveBlack),
