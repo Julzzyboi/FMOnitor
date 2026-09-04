@@ -15,3 +15,8 @@ output "db_password_secret_arn" {
   description = "Retrieve the actual password via: aws secretsmanager get-secret-value --secret-id <this-arn>"
   value       = aws_secretsmanager_secret.db_password.arn
 }
+
+output "alb_url" {
+  description = "Public URL of the app (null until deploy_runtime = true)"
+  value       = length(aws_lb.main) > 0 ? "http://${aws_lb.main[0].dns_name}" : null
+}

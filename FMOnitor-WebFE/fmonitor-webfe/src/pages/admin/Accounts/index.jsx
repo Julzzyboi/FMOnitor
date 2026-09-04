@@ -12,6 +12,7 @@ import UserDetailsModal from './UserDetailsModal'
 import ConfirmModal from './ConfirmModal'
 import Toast from './Toast'
 import { ROLES, FILTERABLE_STATUSES } from './mockUsers'
+import { useAuth } from '../../../context/AuthContext'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 const PAGE_SIZE = 8
@@ -33,6 +34,7 @@ function mapAccount(account) {
     status: account.status,
     dateCreated: formatDate(account.createdAt),
     avatarUrl: account.pictureUrl,
+    deletedAt: account.deletedAt,
   }
 }
 
@@ -57,15 +59,23 @@ const CONFIRM_CONFIG = {
   },
   delete: {
     title: 'Delete this user?',
-    message: "They'll be hidden from the active list and only reachable through the Deleted Users view.",
+    message: "They'll be hidden from the active list and only reachable through the Deleted Users view. Accounts left there are automatically deleted permanently after 3 months.",
     confirmLabel: 'Delete',
+    variant: 'danger',
+  },
+  permanentDelete: {
+    title: 'Permanently delete this account?',
+    message:
+      "This cannot be undone. All of this account's data will be erased, and its email address will become available to invite again as a brand new account.",
+    confirmLabel: 'Delete Permanently',
     variant: 'danger',
   },
 }
 
 function AccountsContent() {
+  const { user: currentUser } = useAuth()
+  const currentUserRole = currentUser?.role ?? null
   const [users, setUsers] = useState([])
-  const [currentUserRole, setCurrentUserRole] = useState(null)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('All')
   const [statusFilter, setStatusFilter] = useState('All')
@@ -89,11 +99,6 @@ function AccountsContent() {
       .then((res) => (res.ok ? res.json() : []))
       .then((accounts) => setUsers(accounts.map(mapAccount)))
       .catch(() => setUsers([]))
-
-    fetch(`${API_BASE_URL}/api/user`, { credentials: 'include' })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((me) => setCurrentUserRole(me?.role ?? null))
-      .catch(() => setCurrentUserRole(null))
   }, [])
 
   const canInvite = currentUserRole === 'Superadmin'
@@ -156,10 +161,38 @@ function AccountsContent() {
   }
   const requestDisable = (user) => setPendingAction({ type: 'disable', payload: user })
   const requestDelete = (user) => setPendingAction({ type: 'delete', payload: user })
+  const requestPermanentDelete = (user) => setPendingAction({ type: 'permanentDelete', payload: user })
   const requestSave = (updatedUser) => setPendingAction({ type: 'save', payload: updatedUser })
   const requestAdd = (draftUser) => setPendingAction({ type: 'add', payload: draftUser })
 
   const cancelPendingAction = () => setPendingAction(null)
+
+  // Shared by Disable, Delete, and Restore - all three are the exact same
+  // request (persist a new status for one account), just with a different
+  // target status and success message.
+  const updateStatus = async (user, newStatus, { onSuccess } = {}) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/accounts/${user.id}/status`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      })
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        setToast({ message: body?.message || 'Failed to update this account', type: 'danger' })
+        return
+      }
+
+      const updated = await res.json()
+      setUsers((prev) => prev.map((u) => (u.id === updated.id ? mapAccount(updated) : u)))
+      setViewingUser(null)
+      onSuccess?.()
+    } catch {
+      setToast({ message: 'Failed to update this account', type: 'danger' })
+    }
+  }
 
   const confirmPendingAction = async () => {
     if (!pendingAction) return
@@ -221,27 +254,45 @@ function AccountsContent() {
       setEditingUser(null)
       setToast({ message: 'Changes saved successfully', type: 'success' })
     } else if (type === 'disable') {
-      setUsers((prev) => prev.map((u) => (u.id === payload.id ? { ...u, status: 'Disabled' } : u)))
-      setViewingUser(null)
-      setToast({ message: 'User disabled successfully', type: 'warning' })
+      await updateStatus(payload, 'Disabled', {
+        onSuccess: () => setToast({ message: 'User disabled successfully', type: 'warning' }),
+      })
     } else if (type === 'delete') {
-      setUsers((prev) =>
-        prev.map((u) => (u.id === payload.id ? { ...u, status: 'Deleted', previousStatus: u.status } : u)),
-      )
-      setViewingUser(null)
-      setToast({ message: 'User deleted successfully', type: 'danger' })
+      await updateStatus(payload, 'Deleted', {
+        onSuccess: () => setToast({ message: 'User deleted successfully', type: 'danger' }),
+      })
+    } else if (type === 'permanentDelete') {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/accounts/${payload.id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        })
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => null)
+          setToast({ message: body?.message || 'Failed to permanently delete this account', type: 'danger' })
+        } else {
+          // Unlike Delete/Disable/Restore, the row is actually gone server-side
+          // now - remove it from local state entirely rather than updating its status.
+          setUsers((prev) => prev.filter((u) => u.id !== payload.id))
+          setViewingUser(null)
+          setToast({ message: 'Account permanently deleted', type: 'danger' })
+        }
+      } catch {
+        setToast({ message: 'Failed to permanently delete this account', type: 'danger' })
+      }
     }
 
     setPendingAction(null)
   }
 
-  // Restore is a lightweight recovery action, no confirmation needed.
+  // Restore is a lightweight recovery action, no confirmation needed - always
+  // brings the account back to Active (tbl_users has no "previous status"
+  // column to return it to something more specific like Disabled).
   const handleRestore = (user) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === user.id ? { ...u, status: u.previousStatus ?? 'Active', previousStatus: undefined } : u)),
-    )
-    setViewingUser(null)
-    setToast({ message: 'User restored successfully', type: 'success' })
+    updateStatus(user, 'Active', {
+      onSuccess: () => setToast({ message: 'User restored successfully', type: 'success' }),
+    })
   }
 
   const confirmConfig = pendingAction ? CONFIRM_CONFIG[pendingAction.type] : null
@@ -350,6 +401,7 @@ function AccountsContent() {
           onDisable={requestDisable}
           onDelete={requestDelete}
           onRestore={handleRestore}
+          onPermanentDelete={requestPermanentDelete}
         />
         <div className="border-t border-gray-100">
           <Pagination
@@ -376,6 +428,7 @@ function AccountsContent() {
           onDisable={requestDisable}
           onDelete={requestDelete}
           onRestore={handleRestore}
+          onPermanentDelete={requestPermanentDelete}
         />
       )}
 

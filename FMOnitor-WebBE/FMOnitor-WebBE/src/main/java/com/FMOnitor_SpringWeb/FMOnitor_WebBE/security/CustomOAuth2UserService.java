@@ -8,6 +8,7 @@ import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_UsersRepo;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.stereotype.Service;
 
@@ -23,6 +24,8 @@ public class CustomOAuth2UserService extends OidcUserService {
     private static final String DEFAULT_ROLE = "Requestor";
     private static final String STATUS_ACTIVE = "Active";
     private static final String STATUS_UNREGISTERED = "Unregistered";
+    private static final String STATUS_DISABLED = "Disabled";
+    private static final String STATUS_DELETED = "Deleted";
 
     private final tbl_UsersRepo usersRepo;
     private final tbl_LoginLogsRepo loginLogsRepo;
@@ -44,10 +47,27 @@ public class CustomOAuth2UserService extends OidcUserService {
         // Returning user (has logged in before) -> found by googleSub.
         // Invited-but-never-logged-in user -> has no googleSub yet, only findable by email;
         // this login is what "claims" that pending row instead of creating a duplicate.
-        // Brand new, uninvited sign-in -> found by neither, gets a fresh row.
+        // Anyone else - a real Google account with no matching row here at all -
+        // is not an FMOnitor user and is rejected below instead of being
+        // auto-provisioned. Only an admin creating a row via Add User (or an
+        // account that already exists) can ever sign in.
         tbl_Users user = usersRepo.findByGoogleSub(googleSub)
             .or(() -> usersRepo.findByEmail(email))
-            .orElseGet(tbl_Users::new);
+            .orElse(null);
+
+        if (user == null) {
+            throw new OAuth2AuthenticationException(new OAuth2Error("unauthorized_user"),
+                "No FMOnitor account exists for " + email);
+        }
+
+        // Disable/Delete is an admin's explicit revocation of access - without this
+        // check, that revocation only ever hid the account from the Accounts page's
+        // UI; the account could still fully log in and get a real session, since
+        // nothing anywhere in the login path looked at status before now.
+        if (STATUS_DISABLED.equals(user.getStatus()) || STATUS_DELETED.equals(user.getStatus())) {
+            throw new OAuth2AuthenticationException(new OAuth2Error("account_disabled"),
+                "Account " + email + " is " + user.getStatus().toLowerCase());
+        }
 
         user.setGoogleSub(googleSub);
         user.setEmail(email);
@@ -56,9 +76,9 @@ public class CustomOAuth2UserService extends OidcUserService {
         if (user.getRole() == null) {
             user.setRole(DEFAULT_ROLE);
         }
-        // Claiming a pending invite (or a brand new signup) activates the account.
-        // An admin-set status (Inactive/Disabled) is left alone on a returning login.
-        if (user.getStatus() == null || STATUS_UNREGISTERED.equals(user.getStatus())) {
+        // Claiming a pending invite activates the account. Any other existing
+        // status (e.g. Inactive) is left alone on a returning login.
+        if (STATUS_UNREGISTERED.equals(user.getStatus())) {
             user.setStatus(STATUS_ACTIVE);
         }
         usersRepo.save(user);

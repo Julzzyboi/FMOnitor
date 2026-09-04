@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -6,22 +6,14 @@ import { faCircleUser, faUser, faRightFromBracket } from '@fortawesome/free-soli
 import useClickOutside from '../../hooks/useClickOutside'
 import useFloatingPosition from '../../hooks/useFloatingPosition'
 import { performLogout } from '../../utils/logout'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+import { useAuth } from '../../context/AuthContext'
 
 function ProfileDropdown() {
   const [open, setOpen] = useState(false)
-  const [user, setUser] = useState(null)
+  const { user } = useAuth()
   const close = () => setOpen(false)
   const { triggerRef, menuRef, style } = useFloatingPosition({ open, onClose: close, align: 'right' })
   useClickOutside([triggerRef, menuRef], close)
-
-  useEffect(() => {
-    fetch(`${API_BASE_URL}/api/user`, { credentials: 'include' })
-      .then((res) => (res.ok ? res.json() : null))
-      .then(setUser)
-      .catch(() => setUser(null))
-  }, [])
 
   const handleLogout = () => {
     performLogout()

@@ -9,6 +9,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -24,6 +25,7 @@ import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.JwtAuthenticationFilter;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.JwtAuthenticationSuccessHandler;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.JwtService;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.LogoutLogHandler;
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.OAuth2LoginFailureHandler;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.RefreshTokenService;
 
 @Configuration
@@ -62,7 +64,7 @@ public class SecurityConfig {
             // CSRF protection is meant for the latter. CORS above already restricts which
             // origins can call these endpoints at all. Without this, every POST/PUT/DELETE
             // gets a generic 403 from Spring's default CSRF filter before reaching any controller.
-            .csrf(csrf -> csrf.disable())
+            .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/products")).permitAll()
                 // Not session/JWT-authenticated like everything else here - its own auth
@@ -76,7 +78,8 @@ public class SecurityConfig {
                 PathPatternRequestMatcher.pathPattern("/api/**")))
             .oauth2Login(oauth2 -> oauth2
                 .userInfoEndpoint(userInfo -> userInfo.oidcUserService(customOAuth2UserService))
-                .successHandler(new JwtAuthenticationSuccessHandler(jwtService, refreshTokenService, usersRepo, FRONTEND_URL, secureCookie)))
+                .successHandler(new JwtAuthenticationSuccessHandler(jwtService, refreshTokenService, usersRepo, FRONTEND_URL, secureCookie))
+                .failureHandler(new OAuth2LoginFailureHandler(FRONTEND_URL)))
             .logout(logout -> logout
                 .logoutRequestMatcher(PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/logout"))
                 .logoutSuccessHandler(new LogoutLogHandler(loginLogsRepo, usersRepo, refreshTokenService, FRONTEND_URL, secureCookie))
@@ -91,7 +94,13 @@ public class SecurityConfig {
     private CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of(FRONTEND_URL));
-        configuration.setAllowedMethods(List.of("GET", "POST"));
+        // PATCH: /api/accounts/{id}/status. DELETE: /api/accounts/{id} (permanent
+        // delete). CORS blocks the browser's preflight for any method not listed
+        // here, before the request ever reaches a controller - curl/native clients
+        // aren't subject to this at all, which is exactly why testing an endpoint
+        // with curl alone doesn't catch a missing entry here. Learned this the
+        // hard way once already today; not repeating it for DELETE too.
+        configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
 

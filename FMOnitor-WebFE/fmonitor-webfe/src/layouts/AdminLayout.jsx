@@ -1,11 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
 import Sidebar from '../components/layout/Sidebar'
 import Topbar from '../components/layout/Topbar'
+import { AuthProvider, useAuth } from '../context/AuthContext'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
-
-function AdminLayout() {
+function AdminLayoutContent() {
   const [menuOpen, setMenuOpen] = useState(false)
   // Two separate flags on purpose: "have we heard back yet" vs "was it a yes" -
   // collapsing these into one would make "still checking" indistinguishable
@@ -15,25 +14,7 @@ function AdminLayout() {
   // route is reached, regardless of whether the session behind it is
   // actually still valid - the reactive 401 handling in sessionGuard.js only
   // catches this AFTER something fetches and fails, not before.
-  const [checked, setChecked] = useState(false)
-  const [authorized, setAuthorized] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    fetch(`${API_BASE_URL}/api/user`, { credentials: 'include' })
-      .then((res) => {
-        if (!cancelled) setAuthorized(res.ok)
-      })
-      .catch(() => {
-        if (!cancelled) setAuthorized(false)
-      })
-      .finally(() => {
-        if (!cancelled) setChecked(true)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const { checked, authorized } = useAuth()
 
   if (!checked) {
     return (
@@ -58,6 +39,18 @@ function AdminLayout() {
         </main>
       </div>
     </div>
+  )
+}
+
+// AuthProvider lives here, not in App.jsx - only routes under this layout
+// are ever behind a login, so this is the one place a single /api/user fetch
+// can cover the whole authenticated section (sidebar, topbar, every admin
+// page including the role-gated ones) without also running on /.
+function AdminLayout() {
+  return (
+    <AuthProvider>
+      <AdminLayoutContent />
+    </AuthProvider>
   )
 }
 
