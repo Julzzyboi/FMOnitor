@@ -40,6 +40,9 @@ dependencies:
   # Renders the Google "G" icon from the same inline SVG path data the web
   # app uses, so it's pixel-identical rather than an approximation.
   flutter_svg: ^2.2.1
+  google_sign_in: ^7.2.0
+  http: ^1.6.0
+  flutter_secure_storage: ^11.0.0
 
 dev_dependencies:
   flutter_test:

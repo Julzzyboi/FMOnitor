@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/dot_grid.dart';
 import '../widgets/google_sign_in_button.dart';
@@ -25,6 +26,9 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
 
   late final TapGestureRecognizer _privacyTap;
   late final TapGestureRecognizer _termsTap;
+
+  final AuthService _authService = AuthService();
+  bool _signingIn = false;
 
   @override
   void initState() {
@@ -64,6 +68,20 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       );
   }
 
+  void _showSnackBar(String message, {required bool isError}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: isError ? Colors.red.shade700 : AppColors.waveGray,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+  }
+
   Widget _fadeSlideIn(Animation<double> animation, Widget child) {
     return AnimatedBuilder(
       animation: animation,
@@ -80,9 +98,21 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     );
   }
 
-  void _handleGoogleSignIn() {
-    // TODO: wire up real Google sign-in once the mobile auth flow is decided
-    // (e.g. google_sign_in package hitting the same backend as the web app).
+  Future<void> _handleGoogleSignIn() async {
+    if (_signingIn) return;
+    setState(() => _signingIn = true);
+
+    final result = await _authService.signInWithGoogle();
+
+    if (!mounted) return;
+    setState(() => _signingIn = false);
+
+    if (result.success) {
+      // TODO: navigate to the dashboard once that screen exists.
+      _showSnackBar('Signed in!', isError: false);
+    } else {
+      _showSnackBar(result.errorMessage ?? 'Sign-in failed', isError: true);
+    }
   }
 
   @override
@@ -232,7 +262,24 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                 children: [
                   _fadeSlideIn(
                     _button,
-                    GoogleSignInButton(onPressed: _handleGoogleSignIn),
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        IgnorePointer(
+                          ignoring: _signingIn,
+                          child: Opacity(
+                            opacity: _signingIn ? 0.5 : 1.0,
+                            child: GoogleSignInButton(onPressed: _handleGoogleSignIn),
+                          ),
+                        ),
+                        if (_signingIn)
+                          const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2.5),
+                          ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 20),
                   _fadeSlideIn(

@@ -56,7 +56,7 @@ void main() {
 
     await tapTextSpan(tester, 'Privacy Policy');
     expect(find.text('Privacy Policy — coming soon'), findsOneWidget);
-  });
+  }); 
 
   testWidgets('Tapping Terms and Conditions shows the placeholder message', (WidgetTester tester) async {
     await tester.pumpWidget(const FMonitorApp());

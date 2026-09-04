@@ -70,6 +70,9 @@ public class SecurityConfig {
                 // itself (that's the whole point: it has to keep working after the
                 // access token has expired and the session may be long gone too).
                 .requestMatchers(PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/auth/refresh")).permitAll()
+                // Mobile's equivalent of the web oauth2Login redirect - its own auth
+                // check is verifying the Google ID token itself, inside the controller.
+                .requestMatchers(PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/auth/mobile/google")).permitAll()
                 .anyRequest().authenticated())
             .exceptionHandling(ex -> ex.defaultAuthenticationEntryPointFor(
                 new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
