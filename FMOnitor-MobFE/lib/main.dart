@@ -7,6 +7,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AuthService().init();
   runApp(const FMonitorApp());
+
 }
 
 class FMonitorApp extends StatelessWidget {
