@@ -1,10 +1,12 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faUser } from '@fortawesome/free-solid-svg-icons'
 import RowActionsMenu from './RowActionsMenu'
-import { ROLE_STYLES, STATUS_STYLES } from './rowStyles'
+import { ROLE_STYLES, STATUS_STYLES, daysUntilPurge, purgeDate } from './rowStyles'
 
-function UserCard({ user, onClick, onEdit, onDisable, onDelete, onRestore }) {
+function UserCard({ user, onClick, onEdit, onDisable, onDelete, onRestore, onPermanentDelete }) {
   const roleStyle = ROLE_STYLES[user.role]
+  const purgeDays = user.status === 'Deleted' ? daysUntilPurge(user.deletedAt) : null
+  const purgeAt = user.status === 'Deleted' ? purgeDate(user.deletedAt) : null
 
   return (
     <div
@@ -25,7 +27,14 @@ function UserCard({ user, onClick, onEdit, onDisable, onDelete, onRestore }) {
             <p className="truncate text-xs text-gray-500">{user.email}</p>
           </div>
         </div>
-        <RowActionsMenu user={user} onEdit={onEdit} onDisable={onDisable} onDelete={onDelete} onRestore={onRestore} />
+        <RowActionsMenu
+          user={user}
+          onEdit={onEdit}
+          onDisable={onDisable}
+          onDelete={onDelete}
+          onRestore={onRestore}
+          onPermanentDelete={onPermanentDelete}
+        />
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
@@ -38,6 +47,12 @@ function UserCard({ user, onClick, onEdit, onDisable, onDelete, onRestore }) {
         >
           {user.status}
         </span>
+        {purgeDays !== null && (
+          <span className="text-gray-400">
+            {purgeDays === 0 ? 'Purging soon' : `${purgeDays} day${purgeDays === 1 ? '' : 's'} until purge`}
+            {purgeAt ? ` (on ${purgeAt})` : ''}
+          </span>
+        )}
         <span className="text-gray-400">{user.dateCreated}</span>
       </div>
     </div>

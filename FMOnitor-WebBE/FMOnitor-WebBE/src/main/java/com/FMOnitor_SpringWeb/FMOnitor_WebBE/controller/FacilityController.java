@@ -17,10 +17,15 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/facilities")
 public class FacilityController {
+
+    // Starter vocabulary - a plain Set check, not an enum, so adding a new type
+    // later is a one-line change here rather than a schema/migration change.
+    private static final Set<String> VALID_TYPES = Set.of("Storage", "Venue", "Office", "Laboratory", "Utility");
 
     private final tbl_FacilitiesRepo facilitiesRepo;
     private final tbl_CampusesRepo campusesRepo;
@@ -33,7 +38,10 @@ public class FacilityController {
         this.geofenceService = geofenceService;
     }
 
-    public record FacilityRequest(String name, Double latitude, Double longitude, Long campusId) {}
+    // color/height are optional - per-building 3D customization, defaulted on
+    // the frontend when omitted, not required for a facility to exist.
+    public record FacilityRequest(String name, Double latitude, Double longitude, Long campusId, String type,
+                                   String color, Double height) {}
 
     @PostMapping
     public ResponseEntity<?> createFacility(@RequestBody FacilityRequest request) {
@@ -47,6 +55,9 @@ public class FacilityController {
         if (request.latitude() == null || request.longitude() == null) {
             return badRequest("latitude and longitude are required");
         }
+        if (request.type() == null || !VALID_TYPES.contains(request.type())) {
+            return badRequest("type must be one of " + VALID_TYPES);
+        }
 
         // Geofence Boundary Enforcement.
         if (!geofenceService.isWithinBoundary(request.latitude(), request.longitude(), request.campusId())) {
@@ -58,6 +69,9 @@ public class FacilityController {
         facility.setLatitude(request.latitude());
         facility.setLongitude(request.longitude());
         facility.setCampusId(request.campusId());
+        facility.setType(request.type());
+        facility.setColor(request.color());
+        facility.setHeight(request.height());
 
         return ResponseEntity.ok(facilitiesRepo.save(facility));
     }

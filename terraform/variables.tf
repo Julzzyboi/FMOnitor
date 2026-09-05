@@ -47,6 +47,24 @@ variable "publicly_accessible" {
 }
 
 variable "allowed_cidr_blocks" {
-  description = "CIDR blocks allowed to connect to Postgres on port 5432 (e.g. your own IP as x.x.x.x/32) - never leave this as 0.0.0.0/0 beyond quick throwaway testing"
+  description = "CIDRs allowed to reach Postgres on 5432 (e.g. your IP as x.x.x.x/32); avoid 0.0.0.0/0"
   type        = list(string)
+}
+
+variable "deploy_runtime" {
+  description = "false = only the free scaffolding (ECR, IAM, SGs). true = also the ALB + ECS services + Fargate tasks (billable)."
+  type        = bool
+  default     = false
+}
+
+variable "backend_image_tag" {
+  description = "Image tag ECS runs for the backend"
+  type        = string
+  default     = "v1"
+}
+
+variable "frontend_image_tag" {
+  description = "Image tag ECS runs for the frontend"
+  type        = string
+  default     = "v1"
 }

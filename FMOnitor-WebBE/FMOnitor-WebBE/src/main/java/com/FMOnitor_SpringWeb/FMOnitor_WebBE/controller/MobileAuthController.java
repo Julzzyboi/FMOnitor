@@ -8,7 +8,9 @@ import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.UserProvisioningService;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -60,7 +62,16 @@ public class MobileAuthController {
         String name = (String) payload.get("name");
         String picture = (String) payload.get("picture");
 
-        tbl_Users user = userProvisioningService.provisionFromGoogle(googleSub, email, name, picture);
+        // Same rejection rule as the web login path (unknown account, or
+        // Disabled/Deleted) - provisionFromGoogle throws for both since it's
+        // the one place that decision is made, for every login path.
+        tbl_Users user;
+        try {
+            user = userProvisioningService.provisionFromGoogle(googleSub, email, name, picture);
+        } catch (OAuth2AuthenticationException e) {
+            String errorCode = e.getError() != null ? e.getError().getErrorCode() : "login_failed";
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", errorCode));
+        }
 
         String accessToken = jwtService.generateToken(
             String.valueOf(user.getId()), user.getEmail(), user.getName(), user.getRole());

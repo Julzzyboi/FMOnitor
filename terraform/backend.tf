@@ -1,9 +1,5 @@
-# Remote state, shared across the team. The bucket itself was created
-# once, manually, outside Terraform (a backend can't create its own home).
-#
-# Backend config can't reference variables - values here must be literal.
-# Anyone on the team just needs their own AWS credentials with access to
-# this bucket, then `terraform init` picks this up automatically.
+# Remote state in S3. Bucket was created manually (a backend can't provision
+# its own home). Backend blocks can't use variables - values must be literal.
 terraform {
   backend "s3" {
     bucket       = "fmonitor-tfstate-497902364230"

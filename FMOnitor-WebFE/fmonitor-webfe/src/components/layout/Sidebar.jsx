@@ -4,8 +4,12 @@ import { faRightFromBracket } from '@fortawesome/free-solid-svg-icons'
 import NAV_ITEMS from '../../constants/navItems'
 import logoAdmin from '../../assets/logoAdmin.png'
 import { performLogout } from '../../utils/logout'
+import { useAuth } from '../../context/AuthContext'
 
 function Sidebar({ open, onClose }) {
+  const { user } = useAuth()
+  const visibleNavItems = NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(user?.role))
+
   const handleLogout = () => {
     performLogout()
   }
@@ -36,7 +40,7 @@ function Sidebar({ open, onClose }) {
 
         <nav className="flex-1 overflow-y-auto px-3">
           <ul className="flex flex-col gap-1">
-            {NAV_ITEMS.map(({ label, icon, to }) => (
+            {visibleNavItems.map(({ label, icon, to }) => (
               <li key={to}>
                 <NavLink
                   to={to}

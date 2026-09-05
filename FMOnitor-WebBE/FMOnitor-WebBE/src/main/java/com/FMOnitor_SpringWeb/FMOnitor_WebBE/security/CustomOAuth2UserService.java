@@ -23,6 +23,10 @@ public class CustomOAuth2UserService extends OidcUserService {
     public OidcUser loadUser(OidcUserRequest userRequest) throws OAuth2AuthenticationException {
         OidcUser oidcUser = super.loadUser(userRequest);
 
+        // Any rejection (unknown account, Disabled/Deleted) throws
+        // OAuth2AuthenticationException here, which Spring Security's
+        // oauth2Login filter chain catches and routes to
+        // OAuth2LoginFailureHandler - no local try/catch needed.
         userProvisioningService.provisionFromGoogle(
             oidcUser.getAttribute("sub"),
             oidcUser.getAttribute("email"),

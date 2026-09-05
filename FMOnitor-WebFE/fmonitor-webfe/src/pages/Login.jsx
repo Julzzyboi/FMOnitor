@@ -35,12 +35,23 @@ function GoogleIcon() {
 // login and navigated away underneath it. Reading the token once here, before
 // any component instance exists to be duplicated, means every mount attempt
 // - however many StrictMode runs - agrees on the same answer.
-const initialToken = new URLSearchParams(window.location.search).get('token')
-if (initialToken) {
+const initialParams = new URLSearchParams(window.location.search)
+const initialToken = initialParams.get('token')
+// Set by OAuth2LoginFailureHandler on the backend when CustomOAuth2UserService
+// rejects a login - an unrecognized Google account, or one that's Disabled/Deleted.
+const initialError = initialParams.get('error')
+if (initialToken || initialError) {
   const params = new URLSearchParams(window.location.search)
   params.delete('token')
+  params.delete('error')
   const newSearch = params.toString()
   window.history.replaceState({}, '', window.location.pathname + (newSearch ? `?${newSearch}` : ''))
+}
+
+const ERROR_MESSAGES = {
+  unauthorized_user: "This Google account isn't registered with FMOnitor. Ask an admin to invite you first.",
+  account_disabled: 'This account has been disabled or removed. Contact an administrator.',
+  login_failed: 'Sign-in failed. Please try again.',
 }
 
 function Login() {
@@ -119,6 +130,12 @@ function Login() {
             </p>
             <span className="mt-5 h-1 w-12 rounded-full bg-[#fdcc36]" />
           </div>
+
+          {initialError && (
+            <p className="mt-6 animate-[fade-in-up_0.6s_ease-out_forwards] rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+              {ERROR_MESSAGES[initialError] || ERROR_MESSAGES.login_failed}
+            </p>
+          )}
 
           <button
             type="button"

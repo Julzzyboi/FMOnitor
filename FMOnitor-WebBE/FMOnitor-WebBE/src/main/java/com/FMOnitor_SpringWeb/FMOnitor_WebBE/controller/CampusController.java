@@ -5,7 +5,10 @@ import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_CampusesRepo;
 import tools.jackson.databind.ObjectMapper;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,5 +43,37 @@ public class CampusController {
     @GetMapping
     public List<tbl_Campuses> getCampuses() {
         return campusesRepo.findAll();
+    }
+
+    // name/boundary are both optional here (unlike create) - only touches
+    // whichever field was actually sent, so re-drawing just the boundary
+    // doesn't require re-sending the name too.
+    @PatchMapping("/{id}")
+    public ResponseEntity<?> updateCampus(@PathVariable Long id, @RequestBody CampusRequest request) throws Exception {
+        tbl_Campuses campus = campusesRepo.findById(id).orElse(null);
+        if (campus == null) {
+            return ResponseEntity.notFound().build();
+        }
+        if (request.name() != null) {
+            campus.setName(request.name());
+        }
+        if (request.boundary() != null) {
+            campus.setBoundaryJson(objectMapper.writeValueAsString(request.boundary()));
+        }
+        return ResponseEntity.ok(campusesRepo.save(campus));
+    }
+
+    // No corresponding tbl_FacilitiesRepo cleanup here - a campus with facilities
+    // still bound to it will just leave those rows pointing at a campusId that no
+    // longer resolves to anything. Fine for a test/seed-data cleanup tool; a real
+    // "delete a live campus" flow would need to decide what happens to its
+    // facilities first (reassign vs. cascade), which isn't this endpoint's job.
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteCampus(@PathVariable Long id) {
+        if (campusesRepo.findById(id).isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        campusesRepo.deleteById(id);
+        return ResponseEntity.noContent().build();
     }
 }
