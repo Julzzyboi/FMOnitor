@@ -1,14 +1,78 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="AutoImportSettings">
-    <option name="autoReloadType" value="SELECTIVE" />
+    <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="76ff2e91-159c-411b-8ebb-cac076bf3c4f" name="Changes" comment="" />
+    <list default="true" id="76ff2e91-159c-411b-8ebb-cac076bf3c4f" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/FMOnitor.iml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/FMOnitor-MobFE/fmonitor-mobfe/pubspec.lock" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/security/OAuth2LoginFailureHandler.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/service/AccountCleanupScheduler.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/service/AccountService.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/.env.example" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/components/layout/RequireRole.jsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/context/AuthContext.jsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/pages/admin/CampusMap/CampusDetailsPanel.jsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/pages/admin/CampusMap/FacilityDetailsPanel.jsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/pages/admin/CampusMap/MapCanvas.jsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/pages/admin/CampusMap/index.jsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/pages/admin/CampusMap/rowStyles.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/terraform/alb.tf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/terraform/ecr.tf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/terraform/ecs.tf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/terraform/iam.tf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/terraform/network.tf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-MobFE/.dart_tool/package_config.json" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-MobFE/.dart_tool/package_config.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-MobFE/.flutter-plugins-dependencies" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-MobFE/.flutter-plugins-dependencies" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-MobFE/ios/Flutter/Generated.xcconfig" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-MobFE/ios/Flutter/Generated.xcconfig" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-MobFE/ios/Flutter/ephemeral/flutter_native_integration.env" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-MobFE/ios/Flutter/ephemeral/flutter_native_integration.env" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-MobFE/ios/Flutter/flutter_export_environment.sh" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-MobFE/ios/Flutter/flutter_export_environment.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebBE/.idea/compiler.xml" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebBE/.idea/compiler.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/FMOnitorWebBeApplication.java" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/FMOnitorWebBeApplication.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/config/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/config/SecurityConfig.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/controller/AccountController.java" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/controller/AccountController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/controller/CampusController.java" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/controller/CampusController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/controller/FacilityController.java" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/controller/FacilityController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/controller/MobileAuthController.java" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/controller/MobileAuthController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/model/tbl_Facilities.java" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/model/tbl_Facilities.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/model/tbl_Users.java" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/model/tbl_Users.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/repo/tbl_UsersRepo.java" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/repo/tbl_UsersRepo.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/security/CustomOAuth2UserService.java" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/security/CustomOAuth2UserService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/security/UserProvisioningService.java" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/security/UserProvisioningService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/service/EmailService.java" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/java/com/FMOnitor_SpringWeb/FMOnitor_WebBE/service/EmailService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebBE/FMOnitor-WebBE/src/main/resources/application.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/App.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/App.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/components/layout/AdminPageShell.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/components/layout/AdminPageShell.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/components/layout/ProfileDropdown.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/components/layout/ProfileDropdown.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/components/layout/Sidebar.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/components/layout/Sidebar.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/constants/navItems.js" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/constants/navItems.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/layouts/AdminLayout.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/layouts/AdminLayout.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/pages/Login.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/pages/Login.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/pages/admin/Accounts/RowActionsMenu.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/pages/admin/Accounts/RowActionsMenu.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/pages/admin/Accounts/UserCard.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/pages/admin/Accounts/UserCard.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/pages/admin/Accounts/UserDetailsModal.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/pages/admin/Accounts/UserDetailsModal.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/pages/admin/Accounts/UsersTable.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/pages/admin/Accounts/UsersTable.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/pages/admin/Accounts/index.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/pages/admin/Accounts/index.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/pages/admin/Accounts/rowStyles.js" beforeDir="false" afterPath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/pages/admin/Accounts/rowStyles.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FMOnitor-WebFE/fmonitor-webfe/src/pages/admin/CampusMap.jsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/terraform/backend.tf" beforeDir="false" afterPath="$PROJECT_DIR$/terraform/backend.tf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/terraform/main.tf" beforeDir="false" afterPath="$PROJECT_DIR$/terraform/main.tf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/terraform/outputs.tf" beforeDir="false" afterPath="$PROJECT_DIR$/terraform/outputs.tf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/terraform/variables.tf" beforeDir="false" afterPath="$PROJECT_DIR$/terraform/variables.tf" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
   </component>
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
@@ -20,18 +84,18 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
-  "lastFilter": {
-    "state": "OPEN",
-    "assignee": "Julzzyboi"
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;Julzzyboi&quot;
   }
-}]]></component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/Julzzyboi/FMOnitor.git",
-    "accountId": "79ed372f-db49-4b1d-827a-6deb111346f6"
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/Julzzyboi/FMOnitor.git&quot;,
+    &quot;accountId&quot;: &quot;79ed372f-db49-4b1d-827a-6deb111346f6&quot;
   }
-}]]></component>
+}</component>
   <component name="MavenImportPreferences">
     <option name="generalSettings">
       <MavenGeneralSettings>
@@ -39,10 +103,10 @@
       </MavenGeneralSettings>
     </option>
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "customColor": "",
-  "associatedIndex": 5
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;&quot;,
+  &quot;associatedIndex&quot;: 5
+}</component>
   <component name="ProjectId" id="3IDc3RKLUdCsWleFPToCITuXzH3" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -53,13 +117,17 @@
     "ASKED_SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
     "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "Spring Boot.FMOnitorWebApplication.executor": "Run",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
     "dart.analysis.tool.window.visible": "false",
-    "git-widget-placeholder": "main",
+    "git-widget-placeholder": "Merging MobileAuthBackend",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "S:/GITProjects/FMOnitor",
     "node.js.detected.package.jshint": "true",
