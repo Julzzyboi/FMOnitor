@@ -17,6 +17,7 @@ class AppColors {
   static const Color textMuted = Color(0xFF6B7280); // gray-500
   static const Color textBody = Color(0xFF374151); // gray-700 (google button label)
   static const Color borderGray = Color(0xFFE5E7EB); // gray-200
+  static const Color surfaceMuted = Color(0xFFF3F4F6); // gray-100
 
   // Terms text sits inside the gray wave band now, so it needs light colors.
   static const Color textOnWave = Color(0xFFE5E7EB); // gray-200
