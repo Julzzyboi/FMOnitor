@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'pages/login/login_page.dart';
+import 'hauler/pages/login/login_page.dart';
 
 void main() {
   runApp(const FMonitorApp());

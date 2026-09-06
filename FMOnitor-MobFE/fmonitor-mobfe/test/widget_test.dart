@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:fmonitor/data/inventory_data.dart';
+import 'package:fmonitor/hauler/data/inventory_data.dart';
 import 'package:fmonitor/main.dart';
 
 const _fullMonthNames = [
@@ -50,6 +50,33 @@ void main() {
         .map((w) => w.text.toPlainText())
         .join(' ');
     expect(termsText, contains('Privacy Policy'));
+  });
+
+  testWidgets('The Requestor preview button opens the Requestor nav shell', (WidgetTester tester) async {
+    await tester.pumpWidget(const FMonitorApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Preview Requestor App'));
+    await tester.pumpAndSettle();
+
+    // Landed in the Requestor shell - its own four tabs, no hauler-only
+    // destinations like Inventory or the QR FAB.
+    expect(find.text('Home'), findsNWidgets(2));
+    expect(find.text('Calendar'), findsOneWidget);
+    expect(find.text('Track'), findsOneWidget);
+    expect(find.text('History'), findsOneWidget);
+    expect(find.text('Inventory'), findsNothing);
+    expect(find.byKey(const ValueKey('qr_fab')), findsNothing);
+
+    // A real Navigator push, not a replacement - so the Logout button in
+    // the profile dropdown genuinely works here, popping back to Login.
+    await tester.tap(find.byKey(const ValueKey('profile_button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Logout'), findsOneWidget);
+
+    await tester.tap(find.text('Logout'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sign in with Google'), findsOneWidget);
   });
 
   testWidgets('Tapping Sign in with Google opens the Home tab', (WidgetTester tester) async {
@@ -217,45 +244,34 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('September 2026'), findsOneWidget);
 
-    // The missed-status sample task was removed entirely - it shouldn't
-    // show up anywhere, including as a status label.
-    expect(find.text('Missed'), findsNothing);
-
-    // Sept 5, 2026 has two sample deliveries.
+    // Sept 5, 2026 has nothing scheduled - the sample data is now just the
+    // one placeholder task, on Sept 6.
     await tester.tap(find.byKey(const ValueKey('day_2026-9-5')));
     await tester.pumpAndSettle();
+    expect(find.text('No deliveries this day'), findsOneWidget);
 
-    expect(find.text('2 tasks'), findsOneWidget);
-    expect(find.text('Deliver Scaffolding Set'), findsOneWidget);
-    expect(find.text('Deliver Water Dispenser'), findsOneWidget);
-
-    // Opening a task shows the same fields on a dedicated detail page.
-    await tester.ensureVisible(find.text('Deliver Scaffolding Set'));
-    await tester.pump();
-    await tester.tap(find.text('Deliver Scaffolding Set'));
-    await tester.pumpAndSettle();
-    expect(find.text('Delivery Details'), findsOneWidget);
-    expect(find.text('Destination'), findsOneWidget);
-    expect(find.text('St. Raymund Back Area'), findsOneWidget);
-    expect(find.text('In Transit'), findsWidgets);
-    expect(find.textContaining('Coordinate with the site engineer'), findsOneWidget);
-
-    // Complete Task has no backend to call yet - tapping it just shouldn't
-    // do (or crash) anything.
-    expect(find.text('Complete Task'), findsOneWidget);
-    await tester.tap(find.text('Complete Task'));
-    await tester.pump();
-    expect(find.text('Delivery Details'), findsOneWidget);
-
-    await tester.pageBack();
-    await tester.pumpAndSettle();
-
-    // Sept 6, 2026 has nothing scheduled.
+    // Sept 6, 2026 has the single placeholder task.
     await tester.ensureVisible(find.byKey(const ValueKey('day_2026-9-6')));
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('day_2026-9-6')));
     await tester.pumpAndSettle();
-    expect(find.text('No deliveries this day'), findsOneWidget);
+
+    expect(find.text('1 task'), findsOneWidget);
+    expect(find.text('Sample Delivery Task'), findsOneWidget);
+
+    // Opening it shows the same fields on a dedicated detail page - with
+    // no Complete Task action, since there's no backend to call.
+    await tester.ensureVisible(find.text('Sample Delivery Task'));
+    await tester.pump();
+    await tester.tap(find.text('Sample Delivery Task'));
+    await tester.pumpAndSettle();
+    expect(find.text('Delivery Details'), findsOneWidget);
+    expect(find.text('Destination'), findsOneWidget);
+    expect(find.text('TBD'), findsWidgets);
+    expect(find.text('Complete Task'), findsNothing);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
 
     // Tapping the header label itself (not a separate dropdown) toggles
     // to the Minimal view, collapsing the grid to a single week and
@@ -308,19 +324,19 @@ void main() {
     expect(find.text('All Activity'), findsOneWidget);
   });
 
-  testWidgets('Tapping Privacy Policy shows the placeholder message', (WidgetTester tester) async {
+  testWidgets('Tapping Privacy Policy or Terms and Conditions does nothing yet', (WidgetTester tester) async {
     await tester.pumpWidget(const FMonitorApp());
     await tester.pumpAndSettle();
 
     await tapTextSpan(tester, 'Privacy Policy');
-    expect(find.text('Privacy Policy — coming soon'), findsOneWidget);
-  });
-
-  testWidgets('Tapping Terms and Conditions shows the placeholder message', (WidgetTester tester) async {
-    await tester.pumpWidget(const FMonitorApp());
-    await tester.pumpAndSettle();
+    await tester.pump();
+    expect(find.byType(SnackBar), findsNothing);
 
     await tapTextSpan(tester, 'Terms and Conditions');
-    expect(find.text('Terms and Conditions — coming soon'), findsOneWidget);
+    await tester.pump();
+    expect(find.byType(SnackBar), findsNothing);
+
+    // Still on Login - neither tap navigated anywhere.
+    expect(find.text('Sign in with Google'), findsOneWidget);
   });
 }
