@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { icon } from '@fortawesome/fontawesome-svg-core'
-import { FACILITY_TYPE_STYLES } from './rowStyles'
+import { FACILITY_TYPE_STYLES, CAMPUS_AREA_TYPES } from './rowStyles'
+import DetailsSidebar from './DetailsSidebar'
+import AreaDetailsContent from './AreaDetailsContent'
+import MapLoadingOverlay from './MapLoadingOverlay'
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN
 
@@ -11,33 +14,15 @@ mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN
 const DEFAULT_CENTER = [120.9894, 14.6091]
 const DEFAULT_ZOOM = 20
 
-// A Mapbox Studio style URL (mapbox://styles/<user>/<style-id>) once one
-// exists - see the "customize the campus view" walkthrough. Falls back to a
-// stock light style so the map still renders correctly before that's set up.
-const MAP_STYLE = import.meta.env.VITE_MAPBOX_STYLE || 'mapbox://styles/mapbox/light-v11'
+// Mapbox's own Standard style (v3) - real 3D buildings, terrain-aware colors,
+// and built-in POI/place icons and labels, all native to the style itself
+// rather than hand-painted layer-by-layer the way the old light-v11 setup
+// needed (see applyStandardStyleConfig below). VITE_MAPBOX_STYLE can still
+// override this with a custom Studio style URL if one's ever made.
+const MAP_STYLE = import.meta.env.VITE_MAPBOX_STYLE || 'mapbox://styles/mapbox/standard'
 
-// Every facility gets its own synthetic square footprint to extrude in 3D,
-// rather than trying to match Mapbox's built-in OSM building polygons - that
-// would depend on undocumented internal feature ids that can shift across
-// zoom levels/style changes, and would fight against "individually designed"
-// anyway since we wouldn't own that geometry. This way color/height are
-// fully ours to control, per facility.
-const FOOTPRINT_SIZE_METERS = 20
+// Default extrusion height when a facility hasn't set its own.
 const DEFAULT_BUILDING_HEIGHT = 15
-const EARTH_RADIUS_M = 6378137
-
-function footprintPolygon(lat, lng, sizeMeters) {
-  const half = sizeMeters / 2
-  const dLat = (half / EARTH_RADIUS_M) * (180 / Math.PI)
-  const dLng = (half / (EARTH_RADIUS_M * Math.cos((lat * Math.PI) / 180))) * (180 / Math.PI)
-  return [
-    [lng - dLng, lat - dLat],
-    [lng + dLng, lat - dLat],
-    [lng + dLng, lat + dLat],
-    [lng - dLng, lat + dLat],
-    [lng - dLng, lat - dLat],
-  ]
-}
 
 // Shrinks a ring's points toward its own centroid by `factor` (0 = no
 // change, 0.3 = 30% closer to center). Used only to compute a *tighter*
@@ -57,57 +42,52 @@ function insetRing(coords, factor) {
   ])
 }
 
-// Same ray-casting point-in-polygon test as the backend's GeofenceService
-// (pure JS port, same algorithm) - used instead of Mapbox GL's own `within`
-// style expression, which turned out to have some unresolved requirement
-// (winding direction or otherwise) that silently matched zero buildings with
-// no error either way it was tried. This version is winding-direction
-// agnostic and easy to verify, since it's the same logic already proven to
-// work for facility placement on the backend.
-function pointInPolygon(lng, lat, ring) {
-  let inside = false
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const [lngI, latI] = ring[i]
-    const [lngJ, latJ] = ring[j]
-    const intersects = latI > lat !== latJ > lat && lng < ((lngJ - lngI) * (lat - latI)) / (latJ - latI) + lngI
-    if (intersects) inside = !inside
-  }
-  return inside
-}
-
-// A rendered building feature's geometry (Polygon or MultiPolygon, already
-// reprojected to real lng/lat by Mapbox GL) reduced to one representative
-// point - the average of its outer ring's vertices. Good enough to test
-// "is this building inside the campus" without needing a true centroid.
-function featureRepresentativePoint(feature) {
-  const geom = feature.geometry
+// Builds this facility's own 3D extrusion feature directly from its
+// footprintJson - a real polygon drawn and supplied by an admin (same
+// geojson.io workflow as the campus boundary), not guessed by matching
+// third-party OSM data. Returns null when a facility has no footprint set at
+// all, which just means it renders as a flat marker with no block.
+function facilityFootprintFeature(facility) {
+  if (!facility.footprintJson) return null
   let ring
-  if (geom.type === 'Polygon') ring = geom.coordinates[0]
-  else if (geom.type === 'MultiPolygon') ring = geom.coordinates[0]?.[0]
-  if (!ring || ring.length === 0) return null
-  const lngs = ring.map((c) => c[0])
-  const lats = ring.map((c) => c[1])
-  return [lngs.reduce((a, b) => a + b, 0) / lngs.length, lats.reduce((a, b) => a + b, 0) / lats.length]
+  try {
+    ring = closeRing(JSON.parse(facility.footprintJson))
+  } catch {
+    return null
+  }
+  if (ring.length < 4) return null
+  return {
+    type: 'Feature',
+    properties: {
+      color: FACILITY_TYPE_STYLES[facility.type]?.color ?? FACILITY_TYPE_STYLES.Venue.color,
+      height: facility.height ?? DEFAULT_BUILDING_HEIGHT,
+    },
+    geometry: { type: 'Polygon', coordinates: [ring] },
+  }
 }
 
-// Recomputes which real OSM buildings currently loaded near the campus are
-// actually inside its boundary, and updates the layer's filter to show only
-// those - called once right after the layer's added, and again on every
-// `moveend` since panning/zooming loads different building tiles over time.
-function updateOsmBuildingsFilter(map, layerId, campusRing) {
-  if (!map.getLayer(layerId)) return
-  const features = map.querySourceFeatures('composite', {
-    sourceLayer: 'building',
-    filter: ['==', ['get', 'extrude'], 'true'],
-  })
-  const insideIds = []
+// Mapbox's own Standard-style 3D buildings have a real rooftop height per
+// building, but it's THEIR data - we don't control or store it. A `Marker`
+// always sits at ground level (altitude 0) unless told otherwise, which is
+// why a pin next to a tall building looks disconnected from its roof. This
+// reads whatever height Mapbox is actually rendering at that exact ground
+// point (its `building` featureset's own `height`/`render_height`, in
+// meters) so the marker's `altitude` option (see MarkerOptions - handled
+// natively by Mapbox's own 3D renderer, correct at any pitch/zoom with no
+// per-frame math needed here) can put it at the real rooftop instead.
+// Returns 0 (ground level) when nothing tall is rendered there yet - the
+// correct behavior for genuinely flat ground anyway (a field, a plaza).
+function getGroundBuildingHeight(map, lngLat) {
+  const point = map.project(lngLat)
+  const features = map.queryRenderedFeatures(point)
+  let maxHeight = 0
   for (const feature of features) {
-    const point = featureRepresentativePoint(feature)
-    if (point && pointInPolygon(point[0], point[1], campusRing)) {
-      insideIds.push(feature.id)
+    const height = feature.properties?.height ?? feature.properties?.render_height
+    if (typeof height === 'number' && height > maxHeight) {
+      maxHeight = height
     }
   }
-  map.setFilter(layerId, ['all', ['==', ['get', 'extrude'], 'true'], ['in', ['id'], ['literal', insideIds]]])
+  return maxHeight
 }
 
 // boundaryJson is stored as [[lng,lat], ...] without necessarily repeating the
@@ -119,66 +99,123 @@ function closeRing(coords) {
   return firstLng === lastLng && firstLat === lastLat ? coords : [...coords, coords[0]]
 }
 
+// A GeoJSON polygon's rings after the first are holes cut out of it - this
+// builds one giant rectangle covering way more area than anyone could ever
+// pan to, with every campus's own boundary punched out of it as a hole, so a
+// single fill layer dims the surrounding city (roads, stock buildings,
+// labels) while leaving each campus's own interior completely untouched.
+// Precise per-building matching (which OSM building is "inside" vs
+// "outside") was tried earlier in this project for 3D extrusions and dropped
+// for being unreliable in dense clusters - this sidesteps that entirely by
+// only ever testing against the campus's own real, admin-drawn boundary.
+const WORLD_RING = [
+  [-180, -85],
+  [180, -85],
+  [180, 85],
+  [-180, 85],
+  [-180, -85],
+]
+
+function buildCampusMaskFeature(campuses) {
+  const holes = []
+  for (const campus of campuses) {
+    try {
+      const ring = closeRing(JSON.parse(campus.boundaryJson))
+      if (ring.length >= 4) holes.push(ring)
+    } catch {
+      // Malformed boundary JSON for this one campus - just don't cut a hole
+      // for it, doesn't block the mask from covering everything else.
+    }
+  }
+  return {
+    type: 'Feature',
+    properties: {},
+    geometry: { type: 'Polygon', coordinates: [WORLD_RING, ...holes] },
+  }
+}
+
+// Only campus-area-typed facilities (Building/Field/Gate/etc.) are
+// independently clickable - Venue/Storage markers render as plain, inert
+// pins. Their own details only ever show nested inside whichever campus
+// area they're embedded in (see AreaDetailsContent) or via the general type
+// filter making them visible at all; there's no per-marker click for them.
 function buildMarkerElement(facility, onSelectFacility) {
-  const style = FACILITY_TYPE_STYLES[facility.type] ?? FACILITY_TYPE_STYLES.Office
+  const style = FACILITY_TYPE_STYLES[facility.type] ?? FACILITY_TYPE_STYLES.Venue
+  const interactive = CAMPUS_AREA_TYPES.includes(facility.type)
   const el = document.createElement('div')
   // text-white here isn't decorative - the FontAwesome SVG below fills with
   // currentColor, so this is what actually makes the icon white.
-  el.className = `flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border-2 border-white text-white shadow-md ${style.bgClass}`
+  el.className = `flex h-8 w-8 items-center justify-center rounded-full border-2 border-white text-white shadow-md ${style.bgClass} ${interactive ? 'cursor-pointer' : ''}`
   el.innerHTML = icon(style.icon).html[0]
   const svg = el.querySelector('svg')
   if (svg) {
     svg.style.width = '14px'
     svg.style.height = '14px'
   }
-  el.addEventListener('click', (event) => {
-    // Without this, Mapbox's own click-through-to-map handler fires too and
-    // can close whatever this click was meant to open.
-    event.stopPropagation()
-    onSelectFacility(facility)
-  })
+  if (interactive) {
+    el.addEventListener('click', (event) => {
+      // Without this, Mapbox's own click-through-to-map handler fires too and
+      // can close whatever this click was meant to open.
+      event.stopPropagation()
+      onSelectFacility(facility)
+    })
+  }
   return el
 }
 
-// The light style is deliberately grayscale/muted by default - this recolors
-// its water and vegetation layers to real colors instead of switching the
-// whole style (which would also change roads/labels/buildings we've already
-// tuned). Targets layers by `source-layer` (the underlying vector tileset's
-// schema name, stable across style revisions) rather than hardcoded layer
-// ids, since a style's own layer ids/filters aren't part of its public API
-// and can vary by version - source-layer names are the stable part.
-function applyColorfulTheme(map) {
-  for (const layer of map.getStyle().layers) {
-    if (layer.type !== 'fill') continue
-    if (layer['source-layer'] === 'water') {
-      map.setPaintProperty(layer.id, 'fill-color', '#4a90d9')
-    } else if (layer['source-layer'] === 'landcover') {
-      // Landcover covers wood/grass/scrub/crop classes - real green fields
-      // and trees instead of the style's default flat off-white/tan.
-      map.setPaintProperty(layer.id, 'fill-color', '#8bc98b')
-    } else if (layer['source-layer'] === 'landuse') {
-      // Broader than just parks (also covers e.g. cemetery/hospital zones),
-      // but a lighter green here reads fine for all of them at this zoom.
-      map.setPaintProperty(layer.id, 'fill-color', '#a8d5a8')
-    }
-  }
+// Standard style ships its own real colors, 3D buildings, and POI/place
+// icons+labels out of the box - no more hand-repainting water/landcover/
+// landuse layer-by-layer the way the old light-v11 setup needed. The one
+// thing worth still driving ourselves is the light preset (day/dusk/night),
+// via Standard's own config-property API rather than a manually managed
+// `sky` layer. `setConfigProperty` only exists on Standard (v3) styles - the
+// try/catch means a custom Studio style swapped in via VITE_MAPBOX_STYLE
+// just quietly skips this instead of throwing.
+function isDaytime() {
+  // Manila sits close to the equator, so sunrise/sunset barely shift across
+  // the year (~5:30am-6:30am and ~5:45pm-6:15pm) - a fixed 6am-6pm day window
+  // is a reasonable approximation without pulling in a full sun-position
+  // library just for this.
+  const hour = new Date().getHours()
+  return hour >= 6 && hour < 18
+}
 
-  // A real sky - only actually visible once pitched (which the intro
-  // animation already does), giving the daylight/atmosphere look instead of
-  // a flat color or nothing above the horizon.
-  if (!map.getLayer('sky')) {
-    map.addLayer({
-      id: 'sky',
-      type: 'sky',
-      paint: {
-        'sky-type': 'atmosphere',
-        'sky-atmosphere-sun-intensity': 10,
-      },
-    })
+function applyLightPreset(map) {
+  try {
+    map.setConfigProperty('basemap', 'lightPreset', isDaytime() ? 'day' : 'night')
+  } catch {
+    // Not a Standard-style map (e.g. a custom Studio style) - no light preset
+    // config to set, nothing to do.
   }
 }
 
-function MapCanvas({ campuses, facilities, onSelectFacility, onSelectCampus }) {
+// Reads whatever building/POI/place Mapbox's own data already has at a
+// clicked point - used to pre-fill a new campus area/storage/venue's name
+// instead of asking the admin to type it from scratch (they can still edit
+// it before saving). `point` is pixel coordinates (a MapMouseEvent's
+// `.point`, not `.lngLat`) - queryRenderedFeatures reads the screen, not the
+// globe. Returns null when nothing named is under the click (e.g. open grass).
+function detectPlaceNameAt(map, point) {
+  const features = map.queryRenderedFeatures(point)
+  for (const feature of features) {
+    const name = feature.properties?.name
+    if (typeof name === 'string' && name.trim()) return name.trim()
+  }
+  return null
+}
+
+function MapCanvas({
+  campuses,
+  facilities,
+  allFacilities,
+  placementMode,
+  onPlacementClick,
+  onEditArea,
+  onDeleteArea,
+  onEditItem,
+  onDeleteItem,
+  onAddEmbeddedItem,
+}) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef([])
@@ -188,6 +225,26 @@ function MapCanvas({ campuses, facilities, onSelectFacility, onSelectCampus }) {
   // changes (e.g. toggling "Show Buildings"), since that's the same effect
   // this camera sequencing lives in.
   const introPlayedRef = useRef(false)
+
+  // Read inside the persistent 'click' listener below (attached once, in the
+  // map-lifecycle effect) - refs so that listener always sees the current
+  // values instead of whatever they were on first attach.
+  const placementModeRef = useRef(placementMode)
+  placementModeRef.current = placementMode
+  const onPlacementClickRef = useRef(onPlacementClick)
+  onPlacementClickRef.current = onPlacementClick
+
+  // Selection state lives here, not in the parent - only this component has
+  // the actual Mapbox `map` instance needed to fly the camera to a point.
+  // Only campus-area-typed markers are ever selectable now (see
+  // buildMarkerElement), so `selected` is just the area itself - no more
+  // kind discriminator, since there's nothing else it could be.
+  // `selected` shape: { data, lngLat: [lng, lat] }.
+  const [selected, setSelected] = useState(null)
+  // Independent of `selected` itself - closing (X) clears both, but picking
+  // a different marker while the sidebar's minimized keeps it minimized
+  // rather than jumping back open on every click.
+  const [minimized, setMinimized] = useState(false)
 
   // Map lifecycle - created once on mount, torn down on unmount. The explicit
   // .remove() matters because StrictMode double-invokes effects in dev; without
@@ -208,7 +265,7 @@ function MapCanvas({ campuses, facilities, onSelectFacility, onSelectCampus }) {
     })
     mapRef.current = map
     map.on('load', () => {
-      applyColorfulTheme(map)
+      applyLightPreset(map)
       setMapLoaded(true)
     })
 
@@ -224,12 +281,44 @@ function MapCanvas({ campuses, facilities, onSelectFacility, onSelectCampus }) {
     const resizeObserver = new ResizeObserver(() => map.resize())
     resizeObserver.observe(containerRef.current)
 
+    // "Realtime" day/night - re-checks periodically so a page left open
+    // across the actual day/night boundary updates the light preset live,
+    // not just once at load. 10 minutes is frequent enough to feel real
+    // without constantly touching config properties for no reason.
+    const lightIntervalId = window.setInterval(() => applyLightPreset(map), 10 * 60 * 1000)
+
+    // Placement mode (e.g. "click the map to place a new storage area") -
+    // this is a plain, layer-less click handler, so it only ever fires for
+    // clicks that land on empty map canvas (a click on a marker or the
+    // campus fill is captured by that element/layer first and never reaches
+    // this one). Guarded by the ref so it's a no-op whenever placement mode
+    // isn't actually active, without needing to add/remove this listener
+    // every time that toggles. Also reads whatever Mapbox already has named
+    // at that exact point (a real building/POI) so the add-storage/venue/area
+    // modal can open with its name pre-filled instead of blank.
+    const handlePlacementClick = (e) => {
+      if (placementModeRef.current) {
+        const detectedName = detectPlaceNameAt(map, e.point)
+        onPlacementClickRef.current?.([e.lngLat.lng, e.lngLat.lat], detectedName)
+      }
+    }
+    map.on('click', handlePlacementClick)
+
     return () => {
+      window.clearInterval(lightIntervalId)
       resizeObserver.disconnect()
       map.remove()
       mapRef.current = null
     }
   }, [])
+
+  // Crosshair while placement mode is active, so it's visually obvious the
+  // next click means something different than usual.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapLoaded) return
+    map.getCanvas().style.cursor = placementMode ? 'crosshair' : ''
+  }, [mapLoaded, placementMode])
 
   // Boundary layer(s) + markers - runs once the map has finished its own
   // internal load AND the campus/facility data has arrived from the API,
@@ -242,6 +331,29 @@ function MapCanvas({ campuses, facilities, onSelectFacility, onSelectCampus }) {
     // a one-shot synchronous call, nothing to cancel) - captured here so the
     // effect's cleanup below can clear it if the page unmounts mid-delay.
     let introTimeoutId = null
+
+    // Click-to-view for a campus-area marker: flies the camera in close and
+    // pitched toward the point ("facing" it) rather than just popping the
+    // details straight up, then opens the docked sidebar once the fly
+    // finishes. Gating placement mode here means clicking an existing marker
+    // while placing a new storage point doesn't also pop open its details.
+    function flyToAndSelect(data, lngLat) {
+      if (placementModeRef.current) return
+      // Whatever's currently shown closes the instant a different marker's
+      // clicked, rather than lingering through the ~1.5s flight to the new
+      // one - unmounts DetailsSidebar right away (see the render below), and
+      // the fresh mount once moveend fires plays its entrance animation for
+      // the new area same as any other first-time open.
+      setSelected(null)
+      map.flyTo({
+        center: lngLat,
+        zoom: Math.max(map.getZoom(), 19),
+        pitch: 60,
+        duration: 1500,
+        essential: true,
+      })
+      map.once('moveend', () => setSelected({ data, lngLat }))
+    }
 
     campuses.forEach((campus) => {
       const sourceId = `campus-boundary-${campus.id}`
@@ -280,60 +392,37 @@ function MapCanvas({ campuses, facilities, onSelectFacility, onSelectCampus }) {
         paint: { 'line-color': '#fccb35', 'line-width': 2 },
       })
 
-      // Click-to-view for the area itself, same pattern as facility markers -
-      // this is what actually surfaces the campus's own database id, which
-      // otherwise has no visible representation anywhere on the map.
-      const fillLayerId = `${sourceId}-fill`
-      map.on('click', fillLayerId, () => onSelectCampus(campus))
-      map.on('mouseenter', fillLayerId, () => {
-        map.getCanvas().style.cursor = 'pointer'
-      })
-      map.on('mouseleave', fillLayerId, () => {
-        map.getCanvas().style.cursor = ''
-      })
-
-      // Real 3D buildings, restricted to just what's inside this campus's
-      // boundary - every standard Mapbox style (this one included) ships a
-      // `composite` source with a `building` source-layer carrying real OSM
-      // footprints + height data. Starts unfiltered by location (just the
-      // extrude check); updateOsmBuildingsFilter narrows it to campus-only
-      // right after, and again on every move.
-      const osmBuildingsLayerId = `${sourceId}-osm-3d`
-      if (!map.getLayer(osmBuildingsLayerId)) {
-        const firstSymbolLayer = map.getStyle().layers.find((l) => l.type === 'symbol')
-        map.addLayer(
-          {
-            id: osmBuildingsLayerId,
-            type: 'fill-extrusion',
-            source: 'composite',
-            'source-layer': 'building',
-            minzoom: 15,
-            filter: ['==', ['get', 'extrude'], 'true'],
-            paint: {
-              'fill-extrusion-color': '#cfc6a3',
-              // OSM height/min_height often come through as strings, not
-              // numbers, in this vector data - fill-extrusion-height/base
-              // silently no-op on a non-number rather than erroring, which
-              // was one of the earlier symptoms. to-number coerces either
-              // case; the coalesce default only applies when actually missing.
-              'fill-extrusion-height': ['to-number', ['coalesce', ['get', 'height'], 8]],
-              'fill-extrusion-base': ['to-number', ['coalesce', ['get', 'min_height'], 0]],
-              'fill-extrusion-opacity': 0.85,
-            },
-          },
-          firstSymbolLayer?.id,
-        )
-
-        const refreshFilter = () => updateOsmBuildingsFilter(map, osmBuildingsLayerId, coords)
-        // Tiles for the current view may not be loaded the instant the layer
-        // is added - 'idle' fires once the map has finished rendering
-        // everything it currently has queued, a safe first point to query.
-        map.once('idle', refreshFilter)
-        // Not `.once` - re-run on every subsequent pan/zoom too, since
-        // different building tiles load in as the view changes.
-        map.on('moveend', refreshFilter)
-      }
+      // Deliberately not interactive - only facility/venue/storage markers
+      // are clickable for viewing details. The campus boundary click-to-view
+      // (fly-to-centroid + sidebar) used to live here; removed so clicking
+      // anywhere inside the polygon doesn't trigger an unwanted camera jump
+      // while you're just navigating the map or reaching for a marker.
     })
+
+    // Dims everything outside the campus (surrounding city buildings, roads,
+    // labels) so the campus itself reads as the visual focus instead of
+    // blending into the dense city around it - see buildCampusMaskFeature.
+    // `slot: 'land'` is Standard style's ground-level compositing slot (sits
+    // on the terrain, below buildings/labels) - `slot: 'top'` was tried
+    // first but composites ABOVE the whole 3D scene instead of on the
+    // ground, which reads as a flat gray plane floating in front of
+    // everything at a steep pitch instead of tinting the ground itself. A
+    // non-Standard style just ignores an unknown slot and stacks it in
+    // insertion order like any other layer.
+    const maskSourceId = 'campus-mask'
+    const maskGeojson = buildCampusMaskFeature(campuses)
+    if (map.getSource(maskSourceId)) {
+      map.getSource(maskSourceId).setData(maskGeojson)
+    } else {
+      map.addSource(maskSourceId, { type: 'geojson', data: maskGeojson })
+      map.addLayer({
+        id: `${maskSourceId}-fill`,
+        type: 'fill',
+        source: maskSourceId,
+        slot: 'land',
+        paint: { 'fill-color': '#0b1220', 'fill-opacity': 0.55 },
+      })
+    }
 
     // Intro sequence, plays exactly once per page load (guarded by
     // introPlayedRef, not by this effect's own dependencies): an instant flat
@@ -353,7 +442,7 @@ function MapCanvas({ campuses, facilities, onSelectFacility, onSelectCampus }) {
             // campus's real, unmodified coordinates - this shrunk version is
             // only used for the intro's camera framing, to force a closer
             // fit than "exactly fit the real shapes" (padding: 0) would give.
-            allTightCoords.push(...insetRing(c, 0.35))
+            allTightCoords.push(...insetRing(c, 0.5))
           }
         } catch {
           // Malformed boundary JSON for this one campus - skip it, the
@@ -390,8 +479,11 @@ function MapCanvas({ campuses, facilities, onSelectFacility, onSelectCampus }) {
           (b, [lng, lat]) => b.extend([lng, lat]),
           new mapboxgl.LngLatBounds(allRealCoords[0], allRealCoords[0]),
         )
-        const padLng = (realBounds.getEast() - realBounds.getWest()) * 0.3
-        const padLat = (realBounds.getNorth() - realBounds.getSouth()) * 0.3
+        // Tightened from an earlier 0.3 - less of the surrounding city is
+        // even reachable now that Standard style's own dense city buildings
+        // are visible around the campus, so there's less to pan into anyway.
+        const padLng = (realBounds.getEast() - realBounds.getWest()) * 0.15
+        const padLat = (realBounds.getNorth() - realBounds.getSouth()) * 0.15
         map.setMaxBounds([
           [realBounds.getWest() - padLng, realBounds.getSouth() - padLat],
           [realBounds.getEast() + padLng, realBounds.getNorth() + padLat],
@@ -407,63 +499,142 @@ function MapCanvas({ campuses, facilities, onSelectFacility, onSelectCampus }) {
       }
     }
 
-    // 3D building extrusions - one synthetic footprint per facility, colored
-    // and sized from that facility's own color/height (falling back to its
-    // type's color and a generic default height when not individually set).
+    // 3D building extrusions - each facility's own footprintJson (a real
+    // polygon an admin drew and supplied), colored/sized from that facility's
+    // own color/height. Purely derived from our own data - no async tile
+    // loading to wait on, unlike matching against Mapbox's OSM building data.
     const buildingsSourceId = 'facility-buildings'
     const buildingsGeojson = {
       type: 'FeatureCollection',
-      features: facilities.map((facility) => ({
-        type: 'Feature',
-        properties: {
-          color:
-            facility.color || FACILITY_TYPE_STYLES[facility.type]?.color || FACILITY_TYPE_STYLES.Office.color,
-          height: facility.height ?? DEFAULT_BUILDING_HEIGHT,
-        },
-        geometry: {
-          type: 'Polygon',
-          coordinates: [footprintPolygon(facility.latitude, facility.longitude, FOOTPRINT_SIZE_METERS)],
-        },
-      })),
+      features: facilities.map(facilityFootprintFeature).filter(Boolean),
     }
-
     if (map.getSource(buildingsSourceId)) {
       map.getSource(buildingsSourceId).setData(buildingsGeojson)
     } else {
       map.addSource(buildingsSourceId, { type: 'geojson', data: buildingsGeojson })
-      map.addLayer({
-        id: `${buildingsSourceId}-extrusion`,
-        type: 'fill-extrusion',
-        source: buildingsSourceId,
-        paint: {
-          // Data-driven styling - each feature's own color/height properties
-          // (set above, per facility) drive the paint, not one fixed value.
-          'fill-extrusion-color': ['get', 'color'],
-          'fill-extrusion-height': ['get', 'height'],
-          'fill-extrusion-base': 0,
-          'fill-extrusion-opacity': 0.9,
+      const firstSymbolLayer = map.getStyle().layers.find((l) => l.type === 'symbol')
+      map.addLayer(
+        {
+          id: `${buildingsSourceId}-extrusion`,
+          type: 'fill-extrusion',
+          source: buildingsSourceId,
+          paint: {
+            // Data-driven styling - each feature's own color/height properties
+            // (set in facilityFootprintFeature, per facility) drive the
+            // paint, not one fixed value.
+            'fill-extrusion-color': ['get', 'color'],
+            'fill-extrusion-height': ['get', 'height'],
+            'fill-extrusion-base': 0,
+            'fill-extrusion-opacity': 0.9,
+          },
         },
-      })
+        firstSymbolLayer?.id,
+      )
     }
 
     // Markers are cleared and rebuilt on every change rather than diffed -
     // simpler, and fine at this scale (a handful of buildings, not thousands).
     markersRef.current.forEach((marker) => marker.remove())
-    markersRef.current = facilities.map((facility) =>
-      new mapboxgl.Marker({ element: buildMarkerElement(facility, onSelectFacility) })
-        .setLngLat([facility.longitude, facility.latitude])
-        .addTo(map),
-    )
+    markersRef.current = facilities.map((facility) => {
+      const lngLat = [facility.longitude, facility.latitude]
+      // Sits on top of the facility's own admin-drawn extrusion when it has
+      // one (same height that extrusion itself renders at - see
+      // facilityFootprintFeature/DEFAULT_BUILDING_HEIGHT), otherwise reads
+      // whatever real building Mapbox is already rendering at that ground
+      // point so the pin lands on its actual rooftop instead of the ground.
+      const altitude = facility.footprintJson
+        ? (facility.height ?? DEFAULT_BUILDING_HEIGHT)
+        : getGroundBuildingHeight(map, lngLat)
+      return new mapboxgl.Marker({
+        element: buildMarkerElement(facility, (f) => flyToAndSelect(f, [f.longitude, f.latitude])),
+        altitude,
+      })
+        .setLngLat(lngLat)
+        .addTo(map)
+    })
 
     return () => {
       if (introTimeoutId) window.clearTimeout(introTimeoutId)
     }
-  }, [mapLoaded, campuses, facilities, onSelectFacility, onSelectCampus])
+  }, [mapLoaded, campuses, facilities])
+
+  const handleCloseSelection = () => {
+    setSelected(null)
+    setMinimized(false)
+  }
+
+  // Keeps the open sidebar's header (name/type/photo-derived icon) fresh
+  // after an edit, and closes it entirely if the selected area no longer
+  // exists in the data at all (e.g. deleted from elsewhere) - `selected.data`
+  // is a snapshot captured at click time, not a live reference, so without
+  // this an edit wouldn't be visible until the sidebar were reopened.
+  useEffect(() => {
+    if (!selected) return
+    const fresh = allFacilities.find((f) => f.id === selected.data.id && f.type === selected.data.type)
+    if (!fresh) {
+      handleCloseSelection()
+    } else if (fresh !== selected.data) {
+      setSelected((prev) => (prev ? { ...prev, data: fresh } : prev))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allFacilities])
+
+  // Delete-area additionally closes the sidebar on success (there's nothing
+  // left to show); edit/delete-item just let AreaDetailsContent's own state
+  // (subItem) and the resync effect above handle the rest.
+  const handleDeleteAreaWrapped = async (id) => {
+    const result = await onDeleteArea(id)
+    if (result?.ok) handleCloseSelection()
+    return result
+  }
 
   // AdminPageShell renders this page fullBleed (no padding), so the only
   // thing left to subtract is Topbar's own height (h-16, lg:h-20) - this fills
   // every remaining pixel down to the viewport edge without overflowing it.
-  return <div ref={containerRef} className="h-[calc(100vh-64px)] w-full overflow-hidden lg:h-[calc(100vh-80px)]" />
+  // The sidebar is a sibling docked to this same wrapper's right edge, not
+  // positioned relative to any particular point on the map.
+  return (
+    <div className="relative h-[calc(100vh-64px)] w-full overflow-hidden lg:h-[calc(100vh-80px)]">
+      <div
+        ref={containerRef}
+        className={`h-full w-full transition-opacity duration-700 ${mapLoaded ? 'opacity-100' : 'opacity-0'}`}
+      />
+      {/* Kept mounted (not conditionally rendered) so it fades out smoothly
+          via opacity rather than just vanishing the instant mapLoaded flips -
+          pointer-events-none once hidden so it doesn't swallow map clicks. */}
+      <div
+        className={`absolute inset-0 z-30 transition-opacity duration-500 ${
+          mapLoaded ? 'pointer-events-none opacity-0' : 'opacity-100'
+        }`}
+      >
+        <MapLoadingOverlay label="Loading campus map…" />
+      </div>
+      {selected && (() => {
+        const style = FACILITY_TYPE_STYLES[selected.data.type] ?? FACILITY_TYPE_STYLES.Venue
+        return (
+          <DetailsSidebar
+            icon={style.icon}
+            accentColor={style.color}
+            title={selected.data.name}
+            subtitle={selected.data.type}
+            minimized={minimized}
+            onToggleMinimize={() => setMinimized((v) => !v)}
+            onClose={handleCloseSelection}
+          >
+            <AreaDetailsContent
+              area={selected.data}
+              allFacilities={allFacilities}
+              onEditArea={onEditArea}
+              onDeleteArea={handleDeleteAreaWrapped}
+              onEditItem={onEditItem}
+              onDeleteItem={onDeleteItem}
+              onAddItem={(kind) => onAddEmbeddedItem(kind, selected.data.id)}
+            />
+          </DetailsSidebar>
+        )
+      })()}
+    </div>
+  )
 }
 
 export default MapCanvas
