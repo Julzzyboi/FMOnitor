@@ -11,14 +11,16 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-// Reference data for "official Campus IDs" - each row is one UST campus and
-// its boundary polygon, which GeofenceService checks facility coordinates against.
+// Renamed from tbl_Campuses - "Campus" now refers to the individual named
+// locations/areas on campus (tbl_CampusAreas), not the physical
+// campus/zone boundary itself. This table is purely the boundary polygon
+// GeofenceService checks area/venue/storage coordinates against.
 @Entity
-@Table(name = "tbl_campuses")
+@Table(name = "tbl_campus_maps")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class tbl_Campuses {
+public class tbl_CampusMaps {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
