@@ -2,11 +2,11 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faUser } from '@fortawesome/free-solid-svg-icons'
 import RowActionsMenu from './RowActionsMenu'
 import UserCard from './UserCard'
-import { ROLE_STYLES, STATUS_STYLES } from './rowStyles'
+import { ROLE_STYLES, STATUS_STYLES, daysUntilPurge, purgeDate } from './rowStyles'
 
 const COLUMNS = ['Image', 'Name', 'Email', 'Role', 'Status', 'Date Created', 'Action']
 
-function UsersTable({ users, onRowClick, onEdit, onDisable, onDelete, onRestore }) {
+function UsersTable({ users, onRowClick, onEdit, onDisable, onDelete, onRestore, onPermanentDelete }) {
   if (users.length === 0) {
     return (
       <div className="px-6 py-12 text-center text-sm text-gray-400">
@@ -28,6 +28,7 @@ function UsersTable({ users, onRowClick, onEdit, onDisable, onDelete, onRestore 
             onDisable={onDisable}
             onDelete={onDelete}
             onRestore={onRestore}
+            onPermanentDelete={onPermanentDelete}
           />
         ))}
       </div>
@@ -50,6 +51,8 @@ function UsersTable({ users, onRowClick, onEdit, onDisable, onDelete, onRestore 
           <tbody>
             {users.map((user) => {
               const roleStyle = ROLE_STYLES[user.role]
+              const purgeDays = user.status === 'Deleted' ? daysUntilPurge(user.deletedAt) : null
+              const purgeAt = user.status === 'Deleted' ? purgeDate(user.deletedAt) : null
               return (
                 <tr
                   key={user.id}
@@ -79,6 +82,12 @@ function UsersTable({ users, onRowClick, onEdit, onDisable, onDelete, onRestore 
                     >
                       {user.status}
                     </span>
+                    {purgeDays !== null && (
+                      <p className="mt-1 text-[11px] text-gray-400">
+                        {purgeDays === 0 ? 'Purging soon' : `${purgeDays} day${purgeDays === 1 ? '' : 's'} until purge`}
+                      </p>
+                    )}
+                    {purgeAt && <p className="text-[11px] text-gray-400">on {purgeAt}</p>}
                   </td>
                   <td className="whitespace-nowrap px-6 py-3.5 text-gray-500">{user.dateCreated}</td>
                   <td className="whitespace-nowrap px-6 py-3.5 text-right">
@@ -88,6 +97,7 @@ function UsersTable({ users, onRowClick, onEdit, onDisable, onDelete, onRestore 
                       onDisable={onDisable}
                       onDelete={onDelete}
                       onRestore={onRestore}
+                      onPermanentDelete={onPermanentDelete}
                     />
                   </td>
                 </tr>

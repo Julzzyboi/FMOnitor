@@ -48,6 +48,13 @@ public class tbl_Users {
     @Column(nullable = false)
     private String status;
 
+    // When status last became "Deleted" (soft-delete/archive) - null otherwise,
+    // including after a Restore. Drives the 3-month auto-purge: only archived
+    // rows have this set, and it always reflects the *most recent* archiving,
+    // not a stale one from before an earlier restore.
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

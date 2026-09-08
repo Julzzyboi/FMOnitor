@@ -6,7 +6,9 @@ plugins {
 
 android {
     namespace = "com.fmonitor.fmonitor"
-    compileSdk = flutter.compileSdkVersion
+    // Hardcoded past Flutter's own default (36) - flutter_secure_storage
+    // requires compiling against SDK 37+.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

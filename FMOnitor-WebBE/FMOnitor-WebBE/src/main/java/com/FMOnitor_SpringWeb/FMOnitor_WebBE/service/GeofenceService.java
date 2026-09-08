@@ -1,7 +1,7 @@
 package com.FMOnitor_SpringWeb.FMOnitor_WebBE.service;
 
-import com.FMOnitor_SpringWeb.FMOnitor_WebBE.model.tbl_Campuses;
-import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_CampusesRepo;
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.model.tbl_CampusMaps;
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_CampusMapsRepo;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
@@ -17,31 +17,31 @@ import java.util.Optional;
 @Service
 public class GeofenceService {
 
-    private final tbl_CampusesRepo campusesRepo;
+    private final tbl_CampusMapsRepo campusMapsRepo;
     private final ObjectMapper objectMapper;
 
-    public GeofenceService(tbl_CampusesRepo campusesRepo, ObjectMapper objectMapper) {
-        this.campusesRepo = campusesRepo;
+    public GeofenceService(tbl_CampusMapsRepo campusMapsRepo, ObjectMapper objectMapper) {
+        this.campusMapsRepo = campusMapsRepo;
         this.objectMapper = objectMapper;
     }
 
     public boolean isWithinBoundary(double lat, double lng, Long campusId) {
-        return campusesRepo.findById(campusId)
-            .map(campus -> pointInPolygon(lat, lng, parseBoundary(campus)))
+        return campusMapsRepo.findById(campusId)
+            .map(campusMap -> pointInPolygon(lat, lng, parseBoundary(campusMap)))
             .orElse(false);
     }
 
-    public Optional<tbl_Campuses> findCampusContaining(double lat, double lng) {
-        return campusesRepo.findAll().stream()
-            .filter(campus -> pointInPolygon(lat, lng, parseBoundary(campus)))
+    public Optional<tbl_CampusMaps> findCampusContaining(double lat, double lng) {
+        return campusMapsRepo.findAll().stream()
+            .filter(campusMap -> pointInPolygon(lat, lng, parseBoundary(campusMap)))
             .findFirst();
     }
 
-    private List<List<Double>> parseBoundary(tbl_Campuses campus) {
+    private List<List<Double>> parseBoundary(tbl_CampusMaps campusMap) {
         try {
-            return objectMapper.readValue(campus.getBoundaryJson(), new TypeReference<List<List<Double>>>() {});
+            return objectMapper.readValue(campusMap.getBoundaryJson(), new TypeReference<List<List<Double>>>() {});
         } catch (Exception e) {
-            throw new IllegalStateException("Malformed boundary JSON for campus " + campus.getId(), e);
+            throw new IllegalStateException("Malformed boundary JSON for campus map " + campusMap.getId(), e);
         }
     }
 

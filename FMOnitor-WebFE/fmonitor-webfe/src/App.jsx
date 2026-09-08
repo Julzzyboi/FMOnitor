@@ -9,6 +9,7 @@ import Analytics from './pages/admin/Analytics'
 import History from './pages/admin/History'
 import Accounts from './pages/admin/Accounts'
 import Profile from './pages/admin/Profile'
+import RequireRole from './components/layout/RequireRole'
 
 function App() {
   return (
@@ -23,7 +24,14 @@ function App() {
           <Route path="/campus-map" element={<CampusMap />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/history" element={<History />} />
-          <Route path="/accounts" element={<Accounts />} />
+          <Route
+            path="/accounts"
+            element={
+              <RequireRole role="Superadmin">
+                <Accounts />
+              </RequireRole>
+            }
+          />
           <Route path="/profile" element={<Profile />} />
         </Route>
 

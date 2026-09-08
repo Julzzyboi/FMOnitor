@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faEllipsisVertical, faPen, faBan, faTrash, faArrowRotateLeft } from '@fortawesome/free-solid-svg-icons'
+import { faEllipsisVertical, faPen, faBan, faTrash, faArrowRotateLeft, faTrashCan } from '@fortawesome/free-solid-svg-icons'
 import useClickOutside from '../../../hooks/useClickOutside'
 import useFloatingPosition from '../../../hooks/useFloatingPosition'
 
-function RowActionsMenu({ user, onEdit, onDisable, onDelete, onRestore }) {
+function RowActionsMenu({ user, onEdit, onDisable, onDelete, onRestore, onPermanentDelete }) {
   const [open, setOpen] = useState(false)
   const close = () => setOpen(false)
   const { triggerRef, menuRef, style } = useFloatingPosition({ open, onClose: close, align: 'right' })
@@ -39,17 +39,30 @@ function RowActionsMenu({ user, onEdit, onDisable, onDelete, onRestore }) {
             className="z-[100] w-40 animate-[dropdown-in_0.15s_ease-out] overflow-hidden rounded-xl border border-gray-100 bg-white py-1.5 text-left shadow-xl"
           >
             {isDeleted ? (
-              <button
-                type="button"
-                onClick={stop(() => {
-                  close()
-                  onRestore(user)
-                })}
-                className="flex w-full cursor-pointer items-center gap-2.5 px-4 py-2 text-sm text-emerald-600 transition-colors duration-150 hover:bg-emerald-50"
-              >
-                <FontAwesomeIcon icon={faArrowRotateLeft} className="h-3.5 w-3.5" />
-                Restore
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={stop(() => {
+                    close()
+                    onRestore(user)
+                  })}
+                  className="flex w-full cursor-pointer items-center gap-2.5 px-4 py-2 text-sm text-emerald-600 transition-colors duration-150 hover:bg-emerald-50"
+                >
+                  <FontAwesomeIcon icon={faArrowRotateLeft} className="h-3.5 w-3.5" />
+                  Restore
+                </button>
+                <button
+                  type="button"
+                  onClick={stop(() => {
+                    close()
+                    onPermanentDelete(user)
+                  })}
+                  className="flex w-full cursor-pointer items-center gap-2.5 px-4 py-2 text-sm text-red-700 transition-colors duration-150 hover:bg-red-50"
+                >
+                  <FontAwesomeIcon icon={faTrashCan} className="h-3.5 w-3.5" />
+                  Delete Permanently
+                </button>
+              </>
             ) : (
               <>
                 <button

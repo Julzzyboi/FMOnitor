@@ -14,6 +14,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
@@ -23,13 +24,17 @@ import java.util.Optional;
 // The access token (JwtService) is deliberately short-lived (see
 // app.jwt.expiration-ms) so a stolen one is only ever useful briefly. This
 // endpoint is what lets a still-logged-in user get a new one without going
-// back through the full Google OAuth2 dance - it trades the httpOnly refresh
-// cookie for a fresh access token, and rotates the refresh token in the
-// process (old one is deleted the moment it's used, whether valid or not).
+// back through the full Google OAuth2 dance - it trades the refresh token
+// for a fresh access token, and rotates the refresh token in the process
+// (old one is deleted the moment it's used, whether valid or not).
+//
+// Serves both platforms: web sends its refresh token via the httpOnly cookie
+// (never touches JS) and gets a rotated cookie back; mobile, which has no
+// browser-managed cookie jar, sends/receives it as a plain JSON field instead.
 //
 // Deliberately outside the normal session/JWT-authenticated request set
-// (permitAll in SecurityConfig) - its own auth check IS the refresh cookie,
-// validated against tbl_refresh_tokens below.
+// (permitAll in SecurityConfig) - its own auth check IS the refresh token
+// itself, validated against tbl_refresh_tokens below.
 @RestController
 public class AuthRefreshController {
 
@@ -50,8 +55,11 @@ public class AuthRefreshController {
     }
 
     @PostMapping("/api/auth/refresh")
-    public ResponseEntity<Map<String, Object>> refresh(HttpServletRequest request, HttpServletResponse response) {
-        String rawToken = readCookie(request, REFRESH_COOKIE_NAME);
+    public ResponseEntity<Map<String, Object>> refresh(HttpServletRequest request, HttpServletResponse response,
+                                                         @RequestBody(required = false) Map<String, String> body) {
+        String cookieToken = readCookie(request, REFRESH_COOKIE_NAME);
+        boolean fromCookie = cookieToken != null;
+        String rawToken = fromCookie ? cookieToken : (body != null ? body.get("refreshToken") : null);
         if (rawToken == null) {
             return ResponseEntity.status(401).body(Map.of("message", "No refresh token"));
         }
@@ -73,18 +81,27 @@ public class AuthRefreshController {
         // issues a brand new one, so a leaked-but-unused refresh token has a
         // shrinking window rather than staying valid indefinitely.
         String newRawRefreshToken = refreshTokenService.issueToken(user.getId());
-        ResponseCookie cookie = ResponseCookie.from(REFRESH_COOKIE_NAME, newRawRefreshToken)
-            .httpOnly(true)
-            .secure(secureCookie)
-            .sameSite("Lax")
-            .path("/api/auth")
-            .maxAge(refreshTokenService.getExpirationMs() / 1000)
-            .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
-        Map<String, Object> body = new HashMap<>();
-        body.put("token", newAccessToken);
-        return ResponseEntity.ok(body);
+        Map<String, Object> responseBody = new HashMap<>();
+        responseBody.put("token", newAccessToken);
+        responseBody.put("accessToken", newAccessToken);
+
+        if (fromCookie) {
+            ResponseCookie cookie = ResponseCookie.from(REFRESH_COOKIE_NAME, newRawRefreshToken)
+                .httpOnly(true)
+                .secure(secureCookie)
+                .sameSite("Lax")
+                .path("/api/auth")
+                .maxAge(refreshTokenService.getExpirationMs() / 1000)
+                .build();
+            response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+        } else {
+            // Mobile: no cookie jar to rely on, so the rotated token has to
+            // come back in the body for the app to store itself.
+            responseBody.put("refreshToken", newRawRefreshToken);
+        }
+
+        return ResponseEntity.ok(responseBody);
     }
 
     private static String readCookie(HttpServletRequest request, String name) {

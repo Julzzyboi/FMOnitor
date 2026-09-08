@@ -44,6 +44,13 @@ dependencies:
   font_awesome_flutter: ^11.0.0
   # Picking a QR image from the gallery on the QR Scan page.
   image_picker: ^1.1.2
+  # Real Google Sign-In on the login page, talking to the same backend the
+  # web app uses.
+  google_sign_in: ^7.2.0
+  # The mobile login flow's POST to the backend's /api/auth/mobile/google.
+  http: ^1.6.0
+  # Where AuthService keeps the access/refresh tokens after sign-in.
+  flutter_secure_storage: ^11.0.0
 
 dev_dependencies:
   flutter_test:

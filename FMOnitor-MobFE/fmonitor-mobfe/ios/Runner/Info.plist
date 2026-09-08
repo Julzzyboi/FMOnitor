@@ -28,6 +28,20 @@
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose a QR code image from your photo library to scan.</string>
+	<!-- Google Sign-In callback URL scheme - the REVERSED form of the iOS
+	     OAuth client ID registered in Google Cloud Console (Bundle ID
+	     com.fmonitor.fmonitor), not the client ID itself. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.590989370337-j7ohap66qi97da9akaof21mieaiqlepi</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -1,6 +1,6 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faUser, faXmark, faPen, faBan, faTrash, faArrowRotateLeft } from '@fortawesome/free-solid-svg-icons'
-import { ROLE_STYLES, STATUS_STYLES } from './rowStyles'
+import { faUser, faXmark, faPen, faBan, faTrash, faArrowRotateLeft, faTrashCan } from '@fortawesome/free-solid-svg-icons'
+import { ROLE_STYLES, STATUS_STYLES, daysUntilPurge, purgeDate } from './rowStyles'
 
 function DetailRow({ label, value }) {
   return (
@@ -11,10 +11,12 @@ function DetailRow({ label, value }) {
   )
 }
 
-function UserDetailsModal({ user, onClose, onEdit, onDisable, onDelete, onRestore }) {
+function UserDetailsModal({ user, onClose, onEdit, onDisable, onDelete, onRestore, onPermanentDelete }) {
   const roleStyle = ROLE_STYLES[user.role]
   const isDeleted = user.status === 'Deleted'
   const isDisabled = user.status === 'Disabled'
+  const purgeDays = isDeleted ? daysUntilPurge(user.deletedAt) : null
+  const purgeAt = isDeleted ? purgeDate(user.deletedAt) : null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -68,18 +70,41 @@ function UserDetailsModal({ user, onClose, onEdit, onDisable, onDelete, onRestor
             }
           />
           <DetailRow label="Date Created" value={user.dateCreated} />
+          {purgeDays !== null && (
+            <DetailRow
+              label="Auto-Delete In"
+              value={
+                <span className="font-semibold text-red-600">
+                  {purgeDays === 0 ? 'Purging soon' : `${purgeDays} day${purgeDays === 1 ? '' : 's'}`}
+                </span>
+              }
+            />
+          )}
+          {purgeAt && (
+            <DetailRow label="Permanent Deletion Date" value={<span className="text-red-600">{purgeAt}</span>} />
+          )}
         </div>
 
         <div className="mt-8 flex flex-col gap-2.5 sm:flex-row">
           {isDeleted ? (
-            <button
-              type="button"
-              onClick={() => onRestore(user)}
-              className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-emerald-700"
-            >
-              <FontAwesomeIcon icon={faArrowRotateLeft} className="h-3.5 w-3.5" />
-              Restore
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => onRestore(user)}
+                className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-emerald-700"
+              >
+                <FontAwesomeIcon icon={faArrowRotateLeft} className="h-3.5 w-3.5" />
+                Restore
+              </button>
+              <button
+                type="button"
+                onClick={() => onPermanentDelete(user)}
+                className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-red-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-red-800"
+              >
+                <FontAwesomeIcon icon={faTrashCan} className="h-3.5 w-3.5" />
+                Delete Permanently
+              </button>
+            </>
           ) : (
             <>
               <button

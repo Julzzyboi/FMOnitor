@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fmonitor/hauler/data/inventory_data.dart';
+import 'package:fmonitor/hauler/navigation/hauler_nav_shell.dart';
 import 'package:fmonitor/main.dart';
 
 const _fullMonthNames = [
@@ -35,6 +36,15 @@ Future<void> tapTextSpan(WidgetTester tester, String text) async {
   final globalPosition = renderParagraph.localToGlobal(localCenter);
   await tester.tapAt(globalPosition);
   await tester.pump();
+}
+
+/// Sign-in is real now - Google Sign-In plus a live backend call - so
+/// tests that just need to be *inside* the app shell pump [MainNavShell]
+/// directly instead of tapping through Login's now-networked flow, which
+/// has nothing to authenticate against in a widget test.
+Future<void> pumpMainNavShell(WidgetTester tester) async {
+  await tester.pumpWidget(const MaterialApp(home: MainNavShell()));
+  await tester.pumpAndSettle();
 }
 
 void main() {
@@ -79,27 +89,28 @@ void main() {
     expect(find.text('Sign in with Google'), findsOneWidget);
   });
 
-  testWidgets('Tapping Sign in with Google opens the Home tab', (WidgetTester tester) async {
+  testWidgets('Tapping Sign in with Google fails gracefully without navigating away', (WidgetTester tester) async {
+    // There's no Google Sign-In platform channel or live backend in a
+    // widget test, so a real tap can't succeed here - this confirms the
+    // button drives AuthService and fails safely (a SnackBar, not a crash
+    // or a false navigation) rather than actually reaching the Home tab.
+    // (The brief loading spinner in between isn't asserted on: with no real
+    // platform channel behind it, the failure can resolve within the same
+    // pump as the tap, so there's no frame where it's reliably observable.)
     await tester.pumpWidget(const FMonitorApp());
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Sign in with Google'));
     await tester.pumpAndSettle();
+    expect(find.byType(SnackBar), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
 
-    // Landed in the nav shell, on the Home tab - "Home" shows twice
-    // (topbar title + the nav item's label), everything else once.
-    expect(find.text('Home'), findsNWidgets(2));
-    expect(find.text('Calendar'), findsOneWidget);
-    expect(find.text('Inventory'), findsOneWidget);
-    expect(find.text('History'), findsOneWidget);
-    expect(find.byKey(const ValueKey('qr_fab')), findsOneWidget);
+    // Still on Login - the failed attempt didn't navigate anywhere.
+    expect(find.text('Sign in with Google'), findsOneWidget);
   });
 
   testWidgets('Bottom nav switches the topbar title between tabs', (WidgetTester tester) async {
-    await tester.pumpWidget(const FMonitorApp());
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Sign in with Google'));
-    await tester.pumpAndSettle();
+    await pumpMainNavShell(tester);
 
     Text topbarTitle() => tester.widget<Text>(
           find.descendant(of: find.byKey(const Key('topbar_title')), matching: find.byType(Text)),
@@ -125,10 +136,7 @@ void main() {
   });
 
   testWidgets('Profile dropdown logout returns to the login page', (WidgetTester tester) async {
-    await tester.pumpWidget(const FMonitorApp());
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Sign in with Google'));
-    await tester.pumpAndSettle();
+    await pumpMainNavShell(tester);
 
     await tester.tap(find.byKey(const ValueKey('profile_button')));
     await tester.pumpAndSettle();
@@ -142,10 +150,7 @@ void main() {
   });
 
   testWidgets('QR Scan page shows the frame, flashlight toggle, and passcode button', (WidgetTester tester) async {
-    await tester.pumpWidget(const FMonitorApp());
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Sign in with Google'));
-    await tester.pumpAndSettle();
+    await pumpMainNavShell(tester);
 
     await tester.tap(find.byKey(const ValueKey('qr_fab')));
     await tester.pumpAndSettle();
@@ -171,10 +176,7 @@ void main() {
   });
 
   testWidgets('Inventory page searches, filters by storage area, and opens a detail page', (WidgetTester tester) async {
-    await tester.pumpWidget(const FMonitorApp());
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Sign in with Google'));
-    await tester.pumpAndSettle();
+    await pumpMainNavShell(tester);
 
     await tester.tap(find.byKey(const ValueKey('nav_Inventory')));
     await tester.pumpAndSettle();
@@ -224,10 +226,7 @@ void main() {
   });
 
   testWidgets('Calendar page lists deliveries for a selected day and opens a detail page', (WidgetTester tester) async {
-    await tester.pumpWidget(const FMonitorApp());
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Sign in with Google'));
-    await tester.pumpAndSettle();
+    await pumpMainNavShell(tester);
 
     await tester.tap(find.byKey(const ValueKey('nav_Calendar')));
     await tester.pumpAndSettle();
@@ -297,10 +296,7 @@ void main() {
   });
 
   testWidgets('History page filters the placeholder activity log by type', (WidgetTester tester) async {
-    await tester.pumpWidget(const FMonitorApp());
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Sign in with Google'));
-    await tester.pumpAndSettle();
+    await pumpMainNavShell(tester);
 
     await tester.tap(find.byKey(const ValueKey('nav_History')));
     await tester.pumpAndSettle();
