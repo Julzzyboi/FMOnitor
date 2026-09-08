@@ -8,12 +8,14 @@ import 'package:http/http.dart' as http;
 import 'api_config.dart';
 
 /// Result of a sign-in attempt - just enough for the UI to react (show a
-/// success/error snackbar) without it needing to know anything about tokens.
+/// success/error snackbar, and on success, know which role's shell to
+/// navigate into) without it needing to know anything about tokens.
 class AuthResult {
-  const AuthResult.success() : success = true, errorMessage = null;
-  const AuthResult.failure(this.errorMessage) : success = false;
+  const AuthResult.success(this.role) : success = true, errorMessage = null;
+  const AuthResult.failure(this.errorMessage) : success = false, role = null;
 
   final bool success;
+  final String? role;
   final String? errorMessage;
 }
 
@@ -86,7 +88,12 @@ class AuthService {
       await _storage.write(key: _accessTokenKey, value: accessToken);
       await _storage.write(key: _refreshTokenKey, value: refreshToken);
 
-      return const AuthResult.success();
+      // The backend already rejects Admin/Superadmin (web-only roles) before
+      // ever issuing a token - see MobileAuthController - so by this point
+      // `role` is always Hauler or Requestor. Decoded here (not trusted from
+      // anywhere else) since the JWT itself is the one place this app
+      // actually learns which role just signed in.
+      return AuthResult.success(_decodeRole(accessToken));
     } on GoogleSignInException catch (e) {
       if (e.code == GoogleSignInExceptionCode.canceled) {
         return const AuthResult.failure('Sign-in cancelled');
@@ -94,6 +101,22 @@ class AuthService {
       return AuthResult.failure('Google sign-in failed: ${e.description ?? e.code}');
     } catch (e) {
       return AuthResult.failure('Something went wrong: $e');
+    }
+  }
+
+  // Plain base64url decode of the JWT's middle (payload) segment - no
+  // signature verification needed here, since this token just came straight
+  // from our own backend over HTTPS moments ago; this is only ever reading a
+  // claim back out of it, not trusting an arbitrary/external token.
+  static String? _decodeRole(String jwt) {
+    try {
+      final parts = jwt.split('.');
+      if (parts.length != 3) return null;
+      final payload = utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+      final data = jsonDecode(payload) as Map<String, dynamic>;
+      return data['role'] as String?;
+    } catch (_) {
+      return null;
     }
   }
 

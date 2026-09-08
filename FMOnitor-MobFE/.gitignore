@@ -1,0 +1,11 @@
+# This directory (FMOnitor-MobFE) is NOT the real Flutter project root - the
+# actual project lives one level deeper, in fmonitor-mobfe/ (which has its
+# own proper .gitignore already). Anything matching these patterns showing
+# up directly here means a Flutter command got run from the wrong directory
+# by mistake - these are always stale/orphaned, never real project files.
+build/
+android/
+ios/
+.dart_tool/
+.flutter-plugins-dependencies
+.idea/

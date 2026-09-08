@@ -97,22 +97,30 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     if (!mounted) return;
     setState(() => _signingIn = false);
 
-    if (result.success) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainNavShell()),
-      );
-    } else {
+    if (!result.success) {
       _showSnackBar(result.errorMessage ?? 'Sign-in failed', isError: true);
+      return;
     }
-  }
 
-  // TEMPORARY - lets reviewers reach the Requestor app from this same build
-  // without a separate `-t lib/main_requestor.dart` launch. Remove this
-  // button (and the import above) once the two apps have their own real
-  // entry points/distribution.
-  void _handleRequestorPreview() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const RequestorNavShell()),
+    // Real role-based routing - one app, one login, the destination shell
+    // depends entirely on what the backend says this account's role is
+    // (MobileAuthController already rejects anything that isn't Hauler or
+    // Requestor before a token is ever issued, mirroring how the web app's
+    // Admin/Superadmin roles gate its own pages).
+    Widget? destination;
+    if (result.role == 'Hauler') {
+      destination = const MainNavShell();
+    } else if (result.role == 'Requestor') {
+      destination = const RequestorNavShell();
+    } else {
+      // Shouldn't happen given the backend's own role check, but don't
+      // guess which shell to show if it ever does.
+      _showSnackBar('Unrecognized account role - please contact your administrator', isError: true);
+      return;
+    }
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => destination!),
     );
   }
 
@@ -308,22 +316,6 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                           ),
                           const TextSpan(text: '.'),
                         ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  // TEMPORARY dev shortcut - see _handleRequestorPreview.
-                  _fadeSlideIn(
-                    _terms,
-                    TextButton(
-                      onPressed: _handleRequestorPreview,
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.textOnWave,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      ),
-                      child: Text(
-                        'Preview Requestor App',
-                        style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, decoration: TextDecoration.underline),
                       ),
                     ),
                   ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fmonitor/common/navigation/app_topbar.dart';
 import 'package:fmonitor/hauler/pages/calendar/calendar_page.dart';
+import 'package:fmonitor/hauler/pages/login/login_page.dart';
 import '../pages/history/requestor_history_page.dart';
 import '../pages/home/requestor_home_page.dart';
 import '../pages/track/requestor_track_page.dart';
@@ -32,15 +33,15 @@ class _RequestorNavShellState extends State<RequestorNavShell> {
   void _selectTab(int index) => setState(() => _index = index);
 
   void _logout() {
-    // There's no requestor-specific login page yet. The only way in right
-    // now is the hauler Login page's "Preview Requestor App" shortcut,
-    // which pushes this shell - so popping (when possible) genuinely logs
-    // back out to that screen. Launched standalone (no route to pop to,
-    // e.g. via `-t lib/main_requestor.dart`), this is a no-op since there's
-    // nowhere to return to yet.
-    if (Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
-    }
+    // Mirrors HaulerNavShell's own logout exactly - the real login flow
+    // (lib/main.dart's LoginPage) reaches this shell via pushReplacement, so
+    // there's nothing to pop back to; a plain pop (this shell's old
+    // behavior, from when the only way in was a dev preview push) was a
+    // silent no-op once this became a real production destination.
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+      (route) => false,
+    );
   }
 
   @override

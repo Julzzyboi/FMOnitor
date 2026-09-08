@@ -250,9 +250,26 @@ function AccountsContent() {
         type: createdUsers.length > 0 && failed === 0 ? 'success' : 'danger',
       })
     } else if (type === 'save') {
-      setUsers((prev) => prev.map((u) => (u.id === payload.id ? payload : u)))
-      setEditingUser(null)
-      setToast({ message: 'Changes saved successfully', type: 'success' })
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/accounts/${payload.id}`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: payload.name, role: payload.role }),
+        })
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => null)
+          setToast({ message: body?.message || 'Failed to save changes', type: 'danger' })
+        } else {
+          const updated = await res.json()
+          setUsers((prev) => prev.map((u) => (u.id === updated.id ? mapAccount(updated) : u)))
+          setEditingUser(null)
+          setToast({ message: 'Changes saved successfully', type: 'success' })
+        }
+      } catch {
+        setToast({ message: 'Failed to save changes', type: 'danger' })
+      }
     } else if (type === 'disable') {
       await updateStatus(payload, 'Disabled', {
         onSuccess: () => setToast({ message: 'User disabled successfully', type: 'warning' }),

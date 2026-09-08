@@ -62,32 +62,13 @@ void main() {
     expect(termsText, contains('Privacy Policy'));
   });
 
-  testWidgets('The Requestor preview button opens the Requestor nav shell', (WidgetTester tester) async {
-    await tester.pumpWidget(const FMonitorApp());
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Preview Requestor App'));
-    await tester.pumpAndSettle();
-
-    // Landed in the Requestor shell - its own four tabs, no hauler-only
-    // destinations like Inventory or the QR FAB.
-    expect(find.text('Home'), findsNWidgets(2));
-    expect(find.text('Calendar'), findsOneWidget);
-    expect(find.text('Track'), findsOneWidget);
-    expect(find.text('History'), findsOneWidget);
-    expect(find.text('Inventory'), findsNothing);
-    expect(find.byKey(const ValueKey('qr_fab')), findsNothing);
-
-    // A real Navigator push, not a replacement - so the Logout button in
-    // the profile dropdown genuinely works here, popping back to Login.
-    await tester.tap(find.byKey(const ValueKey('profile_button')));
-    await tester.pumpAndSettle();
-    expect(find.text('Logout'), findsOneWidget);
-
-    await tester.tap(find.text('Logout'));
-    await tester.pumpAndSettle();
-    expect(find.text('Sign in with Google'), findsOneWidget);
-  });
+  // The "Preview Requestor App" dev shortcut this test covered is gone -
+  // LoginPage now routes to Hauler's or Requestor's real nav shell based on
+  // the signed-in account's actual role (see login_page.dart), which isn't
+  // exercisable here the same way the module comment above already explains
+  // for the rest of Login's real, networked sign-in flow. Requestor's own
+  // shell/nav/logout behavior is still covered directly by
+  // requestor_widget_test.dart, which pumps RequestorApp standalone.
 
   testWidgets('Tapping Sign in with Google fails gracefully without navigating away', (WidgetTester tester) async {
     // There's no Google Sign-In platform channel or live backend in a

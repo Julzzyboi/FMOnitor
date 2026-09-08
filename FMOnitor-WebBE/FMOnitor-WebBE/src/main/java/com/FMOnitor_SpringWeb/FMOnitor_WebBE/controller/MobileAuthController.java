@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 // Mobile equivalent of the web app's oauth2Login redirect flow. The Flutter
 // app does the actual Google Sign-In itself (via the google_sign_in SDK) and
@@ -28,6 +29,13 @@ import java.util.Optional;
 // browser does, so the app is expected to store both itself.
 @RestController
 public class MobileAuthController {
+
+    // Admin/Superadmin are web-only roles - there's no admin dashboard on
+    // mobile for them to land on, so this is rejected here (the real
+    // enforcement, same philosophy as every other role check in this
+    // codebase - see RequireRole.jsx on the frontend) rather than trusting
+    // the Flutter app's own role branch to always run first.
+    private static final Set<String> MOBILE_ROLES = Set.of("Hauler", "Requestor");
 
     private final GoogleIdTokenVerifierService googleIdTokenVerifierService;
     private final UserProvisioningService userProvisioningService;
@@ -71,6 +79,11 @@ public class MobileAuthController {
         } catch (OAuth2AuthenticationException e) {
             String errorCode = e.getError() != null ? e.getError().getErrorCode() : "login_failed";
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", errorCode));
+        }
+
+        if (!MOBILE_ROLES.contains(user.getRole())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(Map.of("message", "This account is not yet registered for the mobile app"));
         }
 
         String accessToken = jwtService.generateToken(

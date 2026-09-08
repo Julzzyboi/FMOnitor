@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'requestor/navigation/requestor_nav_shell.dart';
 
-/// Entry point for the Requestor app - a separate build target
-/// (`flutter run -t lib/main_requestor.dart`) sharing this same codebase
-/// and `common/` layer with the hauler app (`lib/main.dart`), but with its
-/// own pages and nav shell under `lib/requestor/`.
-///
-/// There's no login flow here yet - it boots straight into the nav shell,
-/// same as how new hauler pages get previewed before a real backend exists.
+/// Standalone launch/test target for `RequestorNavShell` - boots straight
+/// into it with no login, which is exactly what `test/requestor_widget_test.dart`
+/// needs (a plain MaterialApp wrapper to pump in widget tests). The real
+/// production path is `lib/main.dart`'s single LoginPage, which now routes
+/// to this same nav shell for a Hauler- vs Requestor-role account after a
+/// real Google sign-in - this file isn't part of that flow.
 void main() {
   runApp(const RequestorApp());
 }

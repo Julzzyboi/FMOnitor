@@ -37,6 +37,10 @@ public class AccountController {
     // model's own comment) - Delete, Disable, and Restore in the frontend are
     // all just this same status change with a different target value.
     private static final Set<String> VALID_STATUSES = Set.of("Active", "Inactive", "Unregistered", "Disabled", "Deleted");
+    // Matches the Accounts page's own role dropdown (mockUsers.js's ROLES) -
+    // two web roles (Superadmin/Admin) and two mobile roles (Hauler/
+    // Requestor), all stored in this same plain string column.
+    private static final Set<String> VALID_ROLES = Set.of("Superadmin", "Admin", "Hauler", "Requestor");
 
     private final tbl_UsersRepo usersRepo;
     private final EmailService emailService;
@@ -80,6 +84,10 @@ public class AccountController {
                 .body(Map.of("message", "An account with this email already exists"));
         }
 
+        if (request.role() == null || !VALID_ROLES.contains(request.role())) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Invalid role"));
+        }
+
         // Placeholder display name so the Accounts table doesn't show a blank
         // name before this person has ever logged in - e.g. "julien.novilla" from the email.
         String placeholderName = request.email().split("@")[0];
@@ -101,6 +109,49 @@ public class AccountController {
         }
 
         return ResponseEntity.ok(saved);
+    }
+
+    public record UpdateAccountRequest(String name, String role) {}
+
+    // Edits an existing account's name/role - the Accounts page's "Edit" modal
+    // previously only updated the browser tab's own React state (setUsers in
+    // index.jsx), never actually saving anything, so a role change silently
+    // reverted on refresh - the same bug the status endpoint above already
+    // got fixed for. Both fields optional - only what's actually sent gets
+    // touched, matching the update pattern used elsewhere in this codebase.
+    @PatchMapping("/{id}")
+    public ResponseEntity<?> updateAccount(@PathVariable Long id, @RequestBody UpdateAccountRequest request,
+                                            @AuthenticationPrincipal OidcUser principal) {
+        if (!isSuperadmin(principal)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(Map.of("message", "Only Superadmins can edit accounts"));
+        }
+
+        if (request.role() != null && !VALID_ROLES.contains(request.role())) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Invalid role"));
+        }
+
+        tbl_Users user = usersRepo.findById(id).orElse(null);
+        if (user == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        // A Superadmin demoting their own only account out of Superadmin would
+        // lock everyone out with nobody left to undo it - same guard as the
+        // status endpoint's own self-protection above.
+        String callerEmail = principal.getAttribute("email");
+        if (user.getEmail().equals(callerEmail) && request.role() != null && !ROLE_SUPERADMIN.equals(request.role())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(Map.of("message", "You can't change your own role away from Superadmin"));
+        }
+
+        if (request.name() != null) {
+            user.setName(request.name());
+        }
+        if (request.role() != null) {
+            user.setRole(request.role());
+        }
+        return ResponseEntity.ok(usersRepo.save(user));
     }
 
     public record UpdateStatusRequest(String status) {}

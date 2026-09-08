@@ -91,7 +91,7 @@ void main() {
     expect(find.text('Coming soon.'), findsOneWidget);
   });
 
-  testWidgets('Logout is a safe no-op when launched standalone (nothing to pop to)', (WidgetTester tester) async {
+  testWidgets('Logout navigates to LoginPage, same as the hauler shell', (WidgetTester tester) async {
     await tester.pumpWidget(const RequestorApp());
     await tester.pumpAndSettle();
 
@@ -100,8 +100,11 @@ void main() {
     await tester.tap(find.text('Logout'));
     await tester.pumpAndSettle();
 
-    // Still here - there's no requestor login page to return to yet when
-    // launched via this standalone entry point.
-    expect(find.text('Home'), findsNWidgets(2));
+    // Real navigation now (pushAndRemoveUntil to LoginPage), mirroring
+    // HaulerNavShell - no longer a no-op now that this is a real production
+    // destination (reached via the real LoginPage's role-based routing),
+    // not just a dev preview push.
+    expect(find.text('Home'), findsNothing);
+    expect(find.text('Sign in with Google'), findsOneWidget);
   });
 }
