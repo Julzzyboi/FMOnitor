@@ -1,8 +1,20 @@
-// TODO: when testing on the Android *emulator* specifically, this needs to
-// become 'http://10.0.2.2:8080' instead - the emulator's own "localhost"
-// refers to itself, not the host machine. Not an issue for the Chrome
-// target used during development.
-const String apiBaseUrl = 'http://localhost:8080';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
+
+// The Android *emulator* has its own "localhost" that refers to itself, not
+// the host machine running the backend - 10.0.2.2 is the special alias it
+// provides specifically to reach the host's localhost instead. Not an issue
+// for the Chrome target (kIsWeb, checked first since Platform.isAndroid
+// throws on web - there's no dart:io there) or for a real physical device,
+// which reaches the host over the LAN instead; a real device needs the
+// host's actual LAN IP here rather than either of these, since it isn't on
+// the emulator's private virtual network at all. Not `const` - Platform.isAndroid
+// is a runtime check, not a compile-time constant.
+final String apiBaseUrl = kIsWeb
+    ? 'http://localhost:8080'
+    : Platform.isAndroid
+        ? 'http://10.0.2.2:8080'
+        : 'http://localhost:8080';
 
 // Same web OAuth client-id already used by the backend (application.properties)
 // and the React web app - not a secret, safe to embed here. This is what
