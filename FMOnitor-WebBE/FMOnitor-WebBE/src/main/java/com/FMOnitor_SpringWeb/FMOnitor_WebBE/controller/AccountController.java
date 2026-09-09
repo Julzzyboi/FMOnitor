@@ -1,4 +1,6 @@
 package com.FMOnitor_SpringWeb.FMOnitor_WebBE.controller;
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.util.SetUtil;
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.util.MapUtil;
 
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.model.tbl_Users;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_UsersRepo;
@@ -36,11 +38,11 @@ public class AccountController {
     // Matches the vocabulary tbl_Users.status is documented to use (see that
     // model's own comment) - Delete, Disable, and Restore in the frontend are
     // all just this same status change with a different target value.
-    private static final Set<String> VALID_STATUSES = Set.of("Active", "Inactive", "Unregistered", "Disabled", "Deleted");
+    private static final Set<String> VALID_STATUSES = SetUtil.of("Active", "Inactive", "Unregistered", "Disabled", "Deleted");
     // Matches the Accounts page's own role dropdown (mockUsers.js's ROLES) -
     // two web roles (Superadmin/Admin) and two mobile roles (Hauler/
     // Requestor), all stored in this same plain string column.
-    private static final Set<String> VALID_ROLES = Set.of("Superadmin", "Admin", "Hauler", "Requestor");
+    private static final Set<String> VALID_ROLES = SetUtil.of("Superadmin", "Admin", "Hauler", "Requestor");
 
     private final tbl_UsersRepo usersRepo;
     private final EmailService emailService;
@@ -62,7 +64,7 @@ public class AccountController {
     public ResponseEntity<?> getAccounts(@AuthenticationPrincipal OidcUser principal) {
         if (!isSuperadmin(principal)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("message", "Only Superadmins can view accounts"));
+                .body(MapUtil.of("message", "Only Superadmins can view accounts"));
         }
         return ResponseEntity.ok(usersRepo.findAll());
     }
@@ -70,22 +72,42 @@ public class AccountController {
     // "name" is optional - a Notion-style invite is just an email + role, no
     // name collected upfront. It gets filled in for real once the person
     // actually signs in with Google and claims this row.
-    public record InviteRequest(String email, String role) {}
+    // Plain class instead of a record - records need Java 16+, this project
+    // targets Java 8. Kept the same field-name-style accessor methods
+    // (email(), role()) a record would have generated, so nothing else in
+    // this file needed to change.
+    public static class InviteRequest {
+        private final String email;
+        private final String role;
+
+        public InviteRequest(String email, String role) {
+            this.email = email;
+            this.role = role;
+        }
+
+        public String email() {
+            return email;
+        }
+
+        public String role() {
+            return role;
+        }
+    }
 
     @PostMapping("/invite")
     public ResponseEntity<?> invite(@RequestBody InviteRequest request, @AuthenticationPrincipal OidcUser principal) {
         if (!isSuperadmin(principal)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("message", "Only Superadmins can invite new users"));
+                .body(MapUtil.of("message", "Only Superadmins can invite new users"));
         }
 
         if (usersRepo.findByEmail(request.email()).isPresent()) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(Map.of("message", "An account with this email already exists"));
+                .body(MapUtil.of("message", "An account with this email already exists"));
         }
 
         if (request.role() == null || !VALID_ROLES.contains(request.role())) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Invalid role"));
+            return ResponseEntity.badRequest().body(MapUtil.of("message", "Invalid role"));
         }
 
         // Placeholder display name so the Accounts table doesn't show a blank
@@ -111,7 +133,23 @@ public class AccountController {
         return ResponseEntity.ok(saved);
     }
 
-    public record UpdateAccountRequest(String name, String role) {}
+    public static class UpdateAccountRequest {
+        private final String name;
+        private final String role;
+
+        public UpdateAccountRequest(String name, String role) {
+            this.name = name;
+            this.role = role;
+        }
+
+        public String name() {
+            return name;
+        }
+
+        public String role() {
+            return role;
+        }
+    }
 
     // Edits an existing account's name/role - the Accounts page's "Edit" modal
     // previously only updated the browser tab's own React state (setUsers in
@@ -124,11 +162,11 @@ public class AccountController {
                                             @AuthenticationPrincipal OidcUser principal) {
         if (!isSuperadmin(principal)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("message", "Only Superadmins can edit accounts"));
+                .body(MapUtil.of("message", "Only Superadmins can edit accounts"));
         }
 
         if (request.role() != null && !VALID_ROLES.contains(request.role())) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Invalid role"));
+            return ResponseEntity.badRequest().body(MapUtil.of("message", "Invalid role"));
         }
 
         tbl_Users user = usersRepo.findById(id).orElse(null);
@@ -142,7 +180,7 @@ public class AccountController {
         String callerEmail = principal.getAttribute("email");
         if (user.getEmail().equals(callerEmail) && request.role() != null && !ROLE_SUPERADMIN.equals(request.role())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("message", "You can't change your own role away from Superadmin"));
+                .body(MapUtil.of("message", "You can't change your own role away from Superadmin"));
         }
 
         if (request.name() != null) {
@@ -154,7 +192,17 @@ public class AccountController {
         return ResponseEntity.ok(usersRepo.save(user));
     }
 
-    public record UpdateStatusRequest(String status) {}
+    public static class UpdateStatusRequest {
+        private final String status;
+
+        public UpdateStatusRequest(String status) {
+            this.status = status;
+        }
+
+        public String status() {
+            return status;
+        }
+    }
 
     // Backs Delete ("Deleted"), Disable ("Disabled"), and Restore (back to
     // "Active") from the Accounts page - previously all three only updated
@@ -165,11 +213,11 @@ public class AccountController {
                                            @AuthenticationPrincipal OidcUser principal) {
         if (!isSuperadmin(principal)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("message", "Only Superadmins can change account status"));
+                .body(MapUtil.of("message", "Only Superadmins can change account status"));
         }
 
         if (request.status() == null || !VALID_STATUSES.contains(request.status())) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Invalid status"));
+            return ResponseEntity.badRequest().body(MapUtil.of("message", "Invalid status"));
         }
 
         tbl_Users user = usersRepo.findById(id).orElse(null);
@@ -183,7 +231,7 @@ public class AccountController {
         String callerEmail = principal.getAttribute("email");
         if (user.getEmail().equals(callerEmail) && !"Active".equals(request.status())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("message", "You can't disable or delete your own account"));
+                .body(MapUtil.of("message", "You can't disable or delete your own account"));
         }
 
         // Only ever set while status is actually "Deleted" - clearing it on
@@ -203,7 +251,7 @@ public class AccountController {
     public ResponseEntity<?> permanentlyDelete(@PathVariable Long id, @AuthenticationPrincipal OidcUser principal) {
         if (!isSuperadmin(principal)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("message", "Only Superadmins can permanently delete accounts"));
+                .body(MapUtil.of("message", "Only Superadmins can permanently delete accounts"));
         }
 
         tbl_Users user = usersRepo.findById(id).orElse(null);
@@ -213,13 +261,13 @@ public class AccountController {
 
         if (!"Deleted".equals(user.getStatus())) {
             return ResponseEntity.badRequest()
-                .body(Map.of("message", "Only an already-deleted account can be permanently deleted"));
+                .body(MapUtil.of("message", "Only an already-deleted account can be permanently deleted"));
         }
 
         String callerEmail = principal.getAttribute("email");
         if (user.getEmail().equals(callerEmail)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("message", "You can't delete your own account"));
+                .body(MapUtil.of("message", "You can't delete your own account"));
         }
 
         accountService.permanentlyDelete(id);

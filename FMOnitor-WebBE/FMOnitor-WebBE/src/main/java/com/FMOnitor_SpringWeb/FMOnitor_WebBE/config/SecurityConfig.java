@@ -1,11 +1,11 @@
 package com.FMOnitor_SpringWeb.FMOnitor_WebBE.config;
 
+import java.util.Arrays;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -13,7 +13,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -66,25 +66,29 @@ public class SecurityConfig {
             // gets a generic 403 from Spring's default CSRF filter before reaching any controller.
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/products")).permitAll()
+                // Spring Security 5.7's authorizeHttpRequests() only takes
+                // RequestMatcher varargs here, not a plain String pattern
+                // (that convenience overload came in a later version) -
+                // AntPathRequestMatcher is the Java-8-era way to express one.
+                .requestMatchers(new AntPathRequestMatcher("/api/products")).permitAll()
                 // Not session/JWT-authenticated like everything else here - its own auth
                 // check is the httpOnly refresh cookie, validated inside the controller
                 // itself (that's the whole point: it has to keep working after the
                 // access token has expired and the session may be long gone too).
-                .requestMatchers(PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/auth/refresh")).permitAll()
+                .requestMatchers(new AntPathRequestMatcher("/api/auth/refresh", "POST")).permitAll()
                 // Mobile's equivalent of the web oauth2Login redirect - its own auth
                 // check is verifying the Google ID token itself, inside the controller.
-                .requestMatchers(PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/auth/mobile/google")).permitAll()
+                .requestMatchers(new AntPathRequestMatcher("/api/auth/mobile/google", "POST")).permitAll()
                 .anyRequest().authenticated())
             .exceptionHandling(ex -> ex.defaultAuthenticationEntryPointFor(
                 new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
-                PathPatternRequestMatcher.pathPattern("/api/**")))
+                new AntPathRequestMatcher("/api/**")))
             .oauth2Login(oauth2 -> oauth2
                 .userInfoEndpoint(userInfo -> userInfo.oidcUserService(customOAuth2UserService))
                 .successHandler(new JwtAuthenticationSuccessHandler(jwtService, refreshTokenService, usersRepo, FRONTEND_URL, secureCookie))
                 .failureHandler(new OAuth2LoginFailureHandler(FRONTEND_URL)))
             .logout(logout -> logout
-                .logoutRequestMatcher(PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/logout"))
+                .logoutRequestMatcher(new AntPathRequestMatcher("/logout", "GET"))
                 .logoutSuccessHandler(new LogoutLogHandler(loginLogsRepo, usersRepo, refreshTokenService, FRONTEND_URL, secureCookie))
                 .deleteCookies("JSESSIONID"))
             // Runs before the session-based login machinery, so a request carrying a
@@ -96,15 +100,15 @@ public class SecurityConfig {
 
     private CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(FRONTEND_URL));
+        configuration.setAllowedOrigins(Arrays.asList(FRONTEND_URL));
         // PATCH: /api/accounts/{id}/status. DELETE: /api/accounts/{id} (permanent
         // delete). CORS blocks the browser's preflight for any method not listed
         // here, before the request ever reaches a controller - curl/native clients
         // aren't subject to this at all, which is exactly why testing an endpoint
         // with curl alone doesn't catch a missing entry here. Learned this the
         // hard way once already today; not repeating it for DELETE too.
-        configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE"));
-        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PATCH", "DELETE"));
+        configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

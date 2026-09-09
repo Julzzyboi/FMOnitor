@@ -2,8 +2,8 @@ package com.FMOnitor_SpringWeb.FMOnitor_WebBE.service;
 
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.model.tbl_CampusMaps;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_CampusMapsRepo;
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.stereotype.Service;
 

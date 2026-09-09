@@ -2,7 +2,7 @@ package com.FMOnitor_SpringWeb.FMOnitor_WebBE.controller;
 
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.model.tbl_CampusMaps;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_CampusMapsRepo;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -32,7 +32,26 @@ public class CampusMapController {
 
     // boundary is [[lng, lat], [lng, lat], ...] - GeoJSON point order, matches
     // Mapbox's own coordinate order.
-    public record CampusMapRequest(String name, List<List<Double>> boundary) {}
+    // Plain class instead of a record - records need Java 16+, this project
+    // targets Java 8. Kept the same field-name-style accessor methods a
+    // record would have generated, so nothing else in this file needed to change.
+    public static class CampusMapRequest {
+        private final String name;
+        private final List<List<Double>> boundary;
+
+        public CampusMapRequest(String name, List<List<Double>> boundary) {
+            this.name = name;
+            this.boundary = boundary;
+        }
+
+        public String name() {
+            return name;
+        }
+
+        public List<List<Double>> boundary() {
+            return boundary;
+        }
+    }
 
     @PostMapping
     public ResponseEntity<tbl_CampusMaps> createCampusMap(@RequestBody CampusMapRequest request) throws Exception {
@@ -72,7 +91,7 @@ public class CampusMapController {
     // cascade), which isn't this endpoint's job.
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteCampusMap(@PathVariable Long id) {
-        if (campusMapsRepo.findById(id).isEmpty()) {
+        if (!campusMapsRepo.findById(id).isPresent()) {
             return ResponseEntity.notFound().build();
         }
         campusMapsRepo.deleteById(id);

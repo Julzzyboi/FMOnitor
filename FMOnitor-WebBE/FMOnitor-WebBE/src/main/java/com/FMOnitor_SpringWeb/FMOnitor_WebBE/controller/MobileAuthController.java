@@ -1,4 +1,6 @@
 package com.FMOnitor_SpringWeb.FMOnitor_WebBE.controller;
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.util.SetUtil;
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.util.MapUtil;
 
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.model.tbl_Users;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.GoogleIdTokenVerifierService;
@@ -35,7 +37,7 @@ public class MobileAuthController {
     // enforcement, same philosophy as every other role check in this
     // codebase - see RequireRole.jsx on the frontend) rather than trusting
     // the Flutter app's own role branch to always run first.
-    private static final Set<String> MOBILE_ROLES = Set.of("Hauler", "Requestor");
+    private static final Set<String> MOBILE_ROLES = SetUtil.of("Hauler", "Requestor");
 
     private final GoogleIdTokenVerifierService googleIdTokenVerifierService;
     private final UserProvisioningService userProvisioningService;
@@ -55,13 +57,13 @@ public class MobileAuthController {
     @PostMapping("/api/auth/mobile/google")
     public ResponseEntity<Map<String, Object>> googleMobileLogin(@RequestBody Map<String, String> body) {
         String idTokenString = body.get("idToken");
-        if (idTokenString == null || idTokenString.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Missing idToken"));
+        if (idTokenString == null || idTokenString.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(MapUtil.of("message", "Missing idToken"));
         }
 
         Optional<GoogleIdToken.Payload> verified = googleIdTokenVerifierService.verify(idTokenString);
-        if (verified.isEmpty()) {
-            return ResponseEntity.status(401).body(Map.of("message", "Invalid Google ID token"));
+        if (!verified.isPresent()) {
+            return ResponseEntity.status(401).body(MapUtil.of("message", "Invalid Google ID token"));
         }
 
         GoogleIdToken.Payload payload = verified.get();
@@ -78,19 +80,19 @@ public class MobileAuthController {
             user = userProvisioningService.provisionFromGoogle(googleSub, email, name, picture);
         } catch (OAuth2AuthenticationException e) {
             String errorCode = e.getError() != null ? e.getError().getErrorCode() : "login_failed";
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", errorCode));
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(MapUtil.of("message", errorCode));
         }
 
         if (!MOBILE_ROLES.contains(user.getRole())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("message", "This account is not yet registered for the mobile app"));
+                .body(MapUtil.of("message", "This account is not yet registered for the mobile app"));
         }
 
         String accessToken = jwtService.generateToken(
             String.valueOf(user.getId()), user.getEmail(), user.getName(), user.getRole());
         String refreshToken = refreshTokenService.issueToken(user.getId());
 
-        return ResponseEntity.ok(Map.of(
+        return ResponseEntity.ok(MapUtil.of(
             "accessToken", accessToken,
             "refreshToken", refreshToken));
     }

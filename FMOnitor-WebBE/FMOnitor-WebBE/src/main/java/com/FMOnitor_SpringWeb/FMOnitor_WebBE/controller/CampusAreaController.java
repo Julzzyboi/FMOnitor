@@ -1,4 +1,6 @@
 package com.FMOnitor_SpringWeb.FMOnitor_WebBE.controller;
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.util.SetUtil;
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.util.MapUtil;
 
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.model.tbl_CampusAreas;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_CampusAreasRepo;
@@ -7,7 +9,7 @@ import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_StorageRepo;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_VenuesRepo;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.service.GeofenceService;
 
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -31,7 +33,7 @@ public class CampusAreaController {
     // (areaType property) - a plain Set check, not an enum, so adding a new
     // type later is a one-line change here rather than a schema/migration change.
     private static final Set<String> VALID_TYPES =
-        Set.of("Building", "Field", "Grandstand", "Pool", "In-Campus Grounds", "Garden", "Gate", "Court");
+        SetUtil.of("Building", "Field", "Grandstand", "Pool", "In-Campus Grounds", "Garden", "Gate", "Court");
 
     private final tbl_CampusAreasRepo campusAreasRepo;
     private final tbl_CampusMapsRepo campusMapsRepo;
@@ -54,15 +56,70 @@ public class CampusAreaController {
     // height/footprint/photoUrl are all optional - per-area customization,
     // defaulted (or just skipped) on the frontend when omitted. footprint is
     // [[lng,lat],...], same convention as CampusMapController's boundary field.
-    public record CampusAreaRequest(String name, Double latitude, Double longitude, Long campusId, String type,
-                                    Double height, List<List<Double>> footprint, String photoUrl) {}
+    // Plain class instead of a record - records need Java 16+, this project
+    // targets Java 8. Kept the same field-name-style accessor methods a
+    // record would have generated, so nothing else in this file needed to change.
+    public static class CampusAreaRequest {
+        private final String name;
+        private final Double latitude;
+        private final Double longitude;
+        private final Long campusId;
+        private final String type;
+        private final Double height;
+        private final List<List<Double>> footprint;
+        private final String photoUrl;
+
+        public CampusAreaRequest(String name, Double latitude, Double longitude, Long campusId, String type,
+                                  Double height, List<List<Double>> footprint, String photoUrl) {
+            this.name = name;
+            this.latitude = latitude;
+            this.longitude = longitude;
+            this.campusId = campusId;
+            this.type = type;
+            this.height = height;
+            this.footprint = footprint;
+            this.photoUrl = photoUrl;
+        }
+
+        public String name() {
+            return name;
+        }
+
+        public Double latitude() {
+            return latitude;
+        }
+
+        public Double longitude() {
+            return longitude;
+        }
+
+        public Long campusId() {
+            return campusId;
+        }
+
+        public String type() {
+            return type;
+        }
+
+        public Double height() {
+            return height;
+        }
+
+        public List<List<Double>> footprint() {
+            return footprint;
+        }
+
+        public String photoUrl() {
+            return photoUrl;
+        }
+    }
 
     @PostMapping
     public ResponseEntity<?> createCampusArea(@RequestBody CampusAreaRequest request) {
         if (request.campusId() == null) {
             return badRequest("campusId is required");
         }
-        if (campusMapsRepo.findById(request.campusId()).isEmpty()) {
+        if (!campusMapsRepo.findById(request.campusId()).isPresent()) {
             return badRequest("No campus exists with that campusId");
         }
         if (request.latitude() == null || request.longitude() == null) {
@@ -138,7 +195,7 @@ public class CampusAreaController {
     // embedded items first.
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteCampusArea(@PathVariable Long id) {
-        if (campusAreasRepo.findById(id).isEmpty()) {
+        if (!campusAreasRepo.findById(id).isPresent()) {
             return ResponseEntity.notFound().build();
         }
         if (storageRepo.existsByCampusAreaId(id) || venuesRepo.existsByCampusAreaId(id)) {
@@ -160,6 +217,6 @@ public class CampusAreaController {
     }
 
     private ResponseEntity<?> badRequest(String message) {
-        return ResponseEntity.badRequest().body(Map.of("message", message));
+        return ResponseEntity.badRequest().body(MapUtil.of("message", message));
     }
 }

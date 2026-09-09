@@ -1,13 +1,14 @@
 package com.FMOnitor_SpringWeb.FMOnitor_WebBE.controller;
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.util.MapUtil;
 
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.model.tbl_Users;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_UsersRepo;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.JwtService;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.RefreshTokenService;
 
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -61,17 +62,17 @@ public class AuthRefreshController {
         boolean fromCookie = cookieToken != null;
         String rawToken = fromCookie ? cookieToken : (body != null ? body.get("refreshToken") : null);
         if (rawToken == null) {
-            return ResponseEntity.status(401).body(Map.of("message", "No refresh token"));
+            return ResponseEntity.status(401).body(MapUtil.of("message", "No refresh token"));
         }
 
         Optional<Long> userId = refreshTokenService.validateAndConsume(rawToken);
-        if (userId.isEmpty()) {
-            return ResponseEntity.status(401).body(Map.of("message", "Refresh token invalid or expired"));
+        if (!userId.isPresent()) {
+            return ResponseEntity.status(401).body(MapUtil.of("message", "Refresh token invalid or expired"));
         }
 
         tbl_Users user = usersRepo.findById(userId.get()).orElse(null);
         if (user == null) {
-            return ResponseEntity.status(401).body(Map.of("message", "Account no longer exists"));
+            return ResponseEntity.status(401).body(MapUtil.of("message", "Account no longer exists"));
         }
 
         String newAccessToken = jwtService.generateToken(

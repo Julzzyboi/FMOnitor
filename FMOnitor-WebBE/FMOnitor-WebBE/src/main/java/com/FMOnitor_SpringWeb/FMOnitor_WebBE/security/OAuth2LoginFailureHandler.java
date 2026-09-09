@@ -1,7 +1,7 @@
 package com.FMOnitor_SpringWeb.FMOnitor_WebBE.security;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
@@ -9,7 +9,6 @@ import org.springframework.security.web.authentication.SimpleUrlAuthenticationFa
 
 import java.io.IOException;
 import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 
 // Without this, Spring Security's default failure handler sends the browser to
 // "/login?error" - a URL this app doesn't serve (it's an SPA behind a separate
@@ -32,10 +31,18 @@ public class OAuth2LoginFailureHandler extends SimpleUrlAuthenticationFailureHan
         // "account_disabled") rides along on the exception - forward it as-is
         // so the frontend can show the right message instead of one generic one.
         String errorCode = "login_failed";
-        if (exception instanceof OAuth2AuthenticationException oauthEx && oauthEx.getError() != null) {
-            errorCode = oauthEx.getError().getErrorCode();
+        if (exception instanceof OAuth2AuthenticationException) {
+            OAuth2AuthenticationException oauthEx = (OAuth2AuthenticationException) exception;
+            if (oauthEx.getError() != null) {
+                errorCode = oauthEx.getError().getErrorCode();
+            }
         }
-        String encoded = URLEncoder.encode(errorCode, StandardCharsets.UTF_8);
+        // URLEncoder.encode(String, Charset) needs Java 10 - this project
+        // targets Java 8, where the only encode() overload takes the charset
+        // name as a String instead (and declares a checked
+        // UnsupportedEncodingException, already covered by this method's own
+        // "throws IOException" since that exception is an IOException subtype).
+        String encoded = URLEncoder.encode(errorCode, "UTF-8");
         response.sendRedirect(frontendUrl + "/?error=" + encoded);
     }
 }

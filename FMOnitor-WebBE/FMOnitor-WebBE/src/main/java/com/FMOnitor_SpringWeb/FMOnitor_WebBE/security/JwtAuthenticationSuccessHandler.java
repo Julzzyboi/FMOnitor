@@ -3,8 +3,8 @@ package com.FMOnitor_SpringWeb.FMOnitor_WebBE.security;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.model.tbl_Users;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_UsersRepo;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;

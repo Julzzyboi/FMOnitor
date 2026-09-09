@@ -1,4 +1,5 @@
 package com.FMOnitor_SpringWeb.FMOnitor_WebBE.controller;
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.util.MapUtil;
 
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.model.tbl_CampusAreas;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.model.tbl_Storage;
@@ -6,7 +7,7 @@ import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_CampusAreasRepo;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_StorageRepo;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.service.GeofenceService;
 
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -43,8 +44,57 @@ public class StorageController {
     // (looked up server-side) rather than needing the client to know/send it
     // separately. height/footprint are both optional - per-area 3D
     // customization, defaulted (or just skipped) on the frontend when omitted.
-    public record StorageRequest(String name, Double latitude, Double longitude, Long campusAreaId,
-                                 Double height, List<List<Double>> footprint, String photoUrl) {}
+    // Plain class instead of a record - records need Java 16+, this project
+    // targets Java 8. Kept the same field-name-style accessor methods a
+    // record would have generated, so nothing else in this file needed to change.
+    public static class StorageRequest {
+        private final String name;
+        private final Double latitude;
+        private final Double longitude;
+        private final Long campusAreaId;
+        private final Double height;
+        private final List<List<Double>> footprint;
+        private final String photoUrl;
+
+        public StorageRequest(String name, Double latitude, Double longitude, Long campusAreaId,
+                               Double height, List<List<Double>> footprint, String photoUrl) {
+            this.name = name;
+            this.latitude = latitude;
+            this.longitude = longitude;
+            this.campusAreaId = campusAreaId;
+            this.height = height;
+            this.footprint = footprint;
+            this.photoUrl = photoUrl;
+        }
+
+        public String name() {
+            return name;
+        }
+
+        public Double latitude() {
+            return latitude;
+        }
+
+        public Double longitude() {
+            return longitude;
+        }
+
+        public Long campusAreaId() {
+            return campusAreaId;
+        }
+
+        public Double height() {
+            return height;
+        }
+
+        public List<List<Double>> footprint() {
+            return footprint;
+        }
+
+        public String photoUrl() {
+            return photoUrl;
+        }
+    }
 
     @PostMapping
     public ResponseEntity<?> createStorage(@RequestBody StorageRequest request) {
@@ -126,7 +176,7 @@ public class StorageController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteStorage(@PathVariable Long id) {
-        if (storageRepo.findById(id).isEmpty()) {
+        if (!storageRepo.findById(id).isPresent()) {
             return ResponseEntity.notFound().build();
         }
         storageRepo.deleteById(id);
@@ -145,6 +195,6 @@ public class StorageController {
     }
 
     private ResponseEntity<?> badRequest(String message) {
-        return ResponseEntity.badRequest().body(Map.of("message", message));
+        return ResponseEntity.badRequest().body(MapUtil.of("message", message));
     }
 }

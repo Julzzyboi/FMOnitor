@@ -60,7 +60,7 @@ public class RefreshTokenService {
     public Optional<Long> validateAndConsume(String rawToken) {
         String hash = hash(rawToken);
         Optional<tbl_RefreshTokens> found = repo.findByTokenHash(hash);
-        if (found.isEmpty()) {
+        if (!found.isPresent()) {
             return Optional.empty();
         }
 
