@@ -28,6 +28,14 @@
 	</scm>
 	<properties>
 		<java.version>8</java.version>
+		<!-- java.version alone only sets -source/-target 8, which blocks newer
+		     *syntax* (records, var, pattern-matching instanceof) but still
+		     compiles against whatever JDK is actually running the build - so a
+		     library method that's new in Java 9+ (e.g. Optional.or()) but uses
+		     only Java-8-legal syntax slips through uncaught. -release 8 makes
+		     javac check against the real Java 8 API surface too, not just its
+		     syntax. -->
+		<maven.compiler.release>8</maven.compiler.release>
 	</properties>
 	<dependencies>
 		<dependency>

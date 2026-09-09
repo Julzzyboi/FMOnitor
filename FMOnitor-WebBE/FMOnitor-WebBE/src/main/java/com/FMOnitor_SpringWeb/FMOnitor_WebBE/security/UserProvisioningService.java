@@ -46,9 +46,13 @@ public class UserProvisioningService {
      * rejected, on every login path since they all call this.
      */
     public tbl_Users provisionFromGoogle(String googleSub, String email, String name, String pictureUrl) {
-        tbl_Users user = usersRepo.findByGoogleSub(googleSub)
-            .or(() -> usersRepo.findByEmail(email))
-            .orElse(null);
+        // Optional.or(Supplier) needs Java 9 - this project targets Java 8,
+        // where the equivalent "try this, then fall back to that" has to be
+        // spelled out as a plain if instead.
+        tbl_Users user = usersRepo.findByGoogleSub(googleSub).orElse(null);
+        if (user == null) {
+            user = usersRepo.findByEmail(email).orElse(null);
+        }
 
         if (user == null) {
             throw new OAuth2AuthenticationException(new OAuth2Error("unauthorized_user"),
