@@ -1,5 +1,9 @@
 package com.FMOnitor_SpringWeb.FMOnitor_WebBE.web;
 
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_UsersRepo;
+
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,6 +15,10 @@ import java.util.Map;
 // Serves the browser-facing HTML pages (Thymeleaf views). This is the "Java
 // frontend" - separate from the REST controllers in the controller/ package,
 // which stay as-is and serve JSON to the mobile app.
+//
+// Every mapping here just returns a view name; the shared layout
+// (fragments/layout.html) builds the sidebar + topbar around it, and
+// GlobalModelAttributes supplies ${currentUser}.
 @Controller
 public class PageController {
 
@@ -24,6 +32,12 @@ public class PageController {
         LOGIN_ERROR_MESSAGES.put("account_disabled",
             "This account has been disabled or removed. Contact an administrator.");
         LOGIN_ERROR_MESSAGES.put("login_failed", "Sign-in failed. Please try again.");
+    }
+
+    private final tbl_UsersRepo usersRepo;
+
+    public PageController(tbl_UsersRepo usersRepo) {
+        this.usersRepo = usersRepo;
     }
 
     @GetMapping("/")
@@ -41,5 +55,55 @@ public class PageController {
                 LOGIN_ERROR_MESSAGES.getOrDefault(error, LOGIN_ERROR_MESSAGES.get("login_failed")));
         }
         return "login";
+    }
+
+    @GetMapping("/dashboard")
+    public String dashboard() {
+        return "dashboard";
+    }
+
+    @GetMapping("/inventory")
+    public String inventory() {
+        return "inventory";
+    }
+
+    @GetMapping("/calendar")
+    public String calendar() {
+        return "calendar";
+    }
+
+    @GetMapping("/campus-map")
+    public String campusMap() {
+        return "campus-map";
+    }
+
+    @GetMapping("/analytics")
+    public String analytics() {
+        return "analytics";
+    }
+
+    @GetMapping("/history")
+    public String history() {
+        return "history";
+    }
+
+    @GetMapping("/profile")
+    public String profile() {
+        return "profile";
+    }
+
+    @GetMapping("/accounts")
+    public String accounts(@AuthenticationPrincipal OAuth2User principal) {
+        // Superadmin-only, matching the old /accounts route guard and the
+        // backend's own isSuperadmin() checks on the account API. A non-
+        // Superadmin who somehow reaches this URL is sent back to the
+        // dashboard rather than shown the page.
+        String email = principal != null ? principal.getAttribute("email") : null;
+        String role = email == null ? null
+            : usersRepo.findByEmail(email).map(u -> u.getRole()).orElse(null);
+        if (!"Superadmin".equals(role)) {
+            return "redirect:/dashboard";
+        }
+        return "accounts";
     }
 }

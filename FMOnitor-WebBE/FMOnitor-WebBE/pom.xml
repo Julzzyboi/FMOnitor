@@ -43,6 +43,17 @@
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
 
+		<!-- Dev-only: auto-restarts the app on a recompile and disables template
+		     caching, so template / CSS / JS edits show up without a manual stop-
+		     start. Spring Boot leaves it out of the packaged jar automatically
+		     (optional + it only activates when launched from an exploded build). -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-devtools</artifactId>
+			<scope>runtime</scope>
+			<optional>true</optional>
+		</dependency>
+
 		<!-- Server-rendered HTML views (the "Java frontend"). Templates live in
 		     src/main/resources/templates/, their compiled Tailwind CSS and
 		     images in src/main/resources/static/. -->

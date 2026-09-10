@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<!--
+  Dashboard. In the React app this page is still a blank placeholder
+  (<AdminPageShell /> with no children) - it briefly showed a fake skeleton
+  then faded in nothing. The fake skeleton delay was scaffolding ("swap this
+  out once pages fetch real data"), so it's dropped here; the fade-in stays.
+  Real dashboard content will be built on top of this.
+-->
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: page('Dashboard', ~{::content})}">
+<body>
+  <div th:fragment="content" class="animate-[fade-in_0.4s_ease-out_forwards] p-4 sm:p-6 lg:p-8">
+  </div>
+</body>
+</html>

@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<!-- Accounts (Superadmin only). Real page not ported yet - WIP panel for now. -->
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: page('Accounts', ~{::content})}">
+<body>
+  <div th:fragment="content" class="animate-[fade-in_0.4s_ease-out_forwards] p-4 sm:p-6 lg:p-8">
+    <th:block th:replace="~{fragments/wip :: wip('Accounts')}"></th:block>
+  </div>
+</body>
+</html>

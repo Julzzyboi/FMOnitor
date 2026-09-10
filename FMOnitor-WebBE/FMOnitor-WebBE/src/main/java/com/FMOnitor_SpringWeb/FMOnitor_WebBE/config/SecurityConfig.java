@@ -9,8 +9,10 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.util.matcher.AnyRequestMatcher;
 
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_LoginLogsRepo;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_UsersRepo;
@@ -77,11 +79,24 @@ public class SecurityConfig {
                 .requestMatchers(new AntPathRequestMatcher("/css/**")).permitAll()
                 .requestMatchers(new AntPathRequestMatcher("/js/**")).permitAll()
                 .requestMatchers(new AntPathRequestMatcher("/images/**")).permitAll()
+                .requestMatchers(new AntPathRequestMatcher("/fontawesome/**")).permitAll()
+                .requestMatchers(new AntPathRequestMatcher("/favicon.ico")).permitAll()
                 .requestMatchers(new AntPathRequestMatcher("/error")).permitAll()
                 .anyRequest().authenticated())
-            .exceptionHandling(ex -> ex.defaultAuthenticationEntryPointFor(
-                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
-                new AntPathRequestMatcher("/api/**")))
+            .exceptionHandling(ex -> ex
+                // The mobile API is a plain HTTP client: an unauthenticated call
+                // should get a bare 401, never an HTML login redirect.
+                .defaultAuthenticationEntryPointFor(
+                    new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+                    new AntPathRequestMatcher("/api/**"))
+                // Everything else is a browser hitting a server-rendered page -
+                // bounce an unauthenticated request to our /login page. Without
+                // this explicit catch-all, registering the /api/** entry point
+                // above leaves 401 as the fallback for page requests too, so
+                // /dashboard would 401 instead of redirecting to sign in.
+                .defaultAuthenticationEntryPointFor(
+                    new LoginUrlAuthenticationEntryPoint("/login"),
+                    AnyRequestMatcher.INSTANCE))
             .oauth2Login(oauth2 -> oauth2
                 // Unauthenticated browser hits now land on our own Thymeleaf
                 // login page, not Spring Security's generated one.

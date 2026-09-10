@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<!--
+  Temporary "this page hasn't been ported yet" panel, shown for History /
+  Accounts / Campus Map until each gets its real Thymeleaf build. Keeps every
+  sidebar link working (no 404s) during the React -> Thymeleaf migration.
+  Delete the route's use of this fragment when the real page lands.
+-->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="wip(pageName)" class="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
+  <i class="fa-solid fa-screwdriver-wrench mb-4 text-4xl text-gray-300"></i>
+  <p class="text-lg font-semibold text-gray-900" th:text="${pageName} + ' is being rebuilt'">Page is being rebuilt</p>
+  <p class="mt-1 max-w-sm text-sm text-gray-500">
+    This section is being migrated from the old React frontend. It'll be back with the same
+    layout, styling and behaviour shortly.
+  </p>
+</div>
+</body>
+</html>

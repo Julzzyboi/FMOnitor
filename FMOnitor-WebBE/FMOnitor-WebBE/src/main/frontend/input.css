@@ -23,6 +23,28 @@ body {
   min-width: 0;
 }
 
+/* ---- Mobile sidebar slide-over.
+   React toggled Tailwind's `translate-x-0` / `-translate-x-full` classes from
+   component state. Doing that from plain JS doesn't work the same way: Tailwind
+   v4 only compiles classes it literally sees in a scanned file, and a class the
+   script adds at runtime was never seen, so its rule wouldn't exist. So the
+   slide is expressed here instead and shell.js just toggles `.is-open`.
+   At lg+ the rail is always in view (the layout markup also has lg:sticky). ---- */
+#app-sidebar {
+  transform: translateX(-100%);
+  transition: transform 0.3s ease-in-out;
+}
+
+#app-sidebar.is-open {
+  transform: translateX(0);
+}
+
+@media (min-width: 1024px) {
+  #app-sidebar {
+    transform: none;
+  }
+}
+
 /* ---- Animations, carried over verbatim from the React app's index.css.
    The keyframes are identical; what used to be React state toggling the
    `animate-[...]` classes is now plain JavaScript doing the same (see the

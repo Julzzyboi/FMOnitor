@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<!--
+  The dark left nav rail. Ported 1:1 from the React <Sidebar> - same
+  bg-[#141414], same w-64, same sticky-on-desktop / slide-over-on-mobile
+  behaviour, same active-link styling (brand yellow pill).
+
+  React got the "which link is active" state from react-router's <NavLink>;
+  here each link compares its own path against the current request URI.
+  The mobile open/close (backdrop + slide) is driven by /js/shell.js.
+-->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<th:block th:fragment="sidebar">
+  <!-- mobile backdrop; shell.js un-hides this when the menu opens -->
+  <div
+    id="sidebar-backdrop"
+    hidden
+    class="fixed inset-0 z-40 bg-black/50 lg:hidden"
+    aria-hidden="true"
+  ></div>
+
+  <!-- The slide-over transform lives in input.css (#app-sidebar / .is-open),
+       not Tailwind translate utilities - see the note there. -->
+  <aside
+    id="app-sidebar"
+    class="fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col bg-[#141414] lg:sticky lg:top-0"
+  >
+    <div class="flex items-center gap-2 px-5 pb-4 pt-6">
+      <img th:src="@{/images/logoAdmin.png}" src="/images/logoAdmin.png" alt="FMOnitor" class="h-8 w-8" />
+      <span class="text-lg font-bold tracking-tight text-white">
+        <span class="text-[#fccb35]">FMO</span>nitor
+      </span>
+    </div>
+
+    <nav class="flex-1 overflow-y-auto px-3">
+      <ul class="flex flex-col gap-1">
+        <!-- Each item: icon + label. The ternary picks the active pill vs the
+             muted/hover style, matching React's NavLink className callback. -->
+        <li>
+          <a th:href="@{/dashboard}"
+             th:classappend="${#httpServletRequest.requestURI == '/dashboard'} ? 'bg-[#fccb35] text-gray-900' : 'text-gray-300 hover:bg-white/10 hover:text-white'"
+             class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors duration-150">
+            <i class="fa-solid fa-table-cells-large w-4 text-center text-[15px]"></i>
+            Dashboard
+          </a>
+        </li>
+        <li>
+          <a th:href="@{/inventory}"
+             th:classappend="${#httpServletRequest.requestURI == '/inventory'} ? 'bg-[#fccb35] text-gray-900' : 'text-gray-300 hover:bg-white/10 hover:text-white'"
+             class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors duration-150">
+            <i class="fa-solid fa-clipboard-list w-4 text-center text-[15px]"></i>
+            Inventory
+          </a>
+        </li>
+        <li>
+          <a th:href="@{/calendar}"
+             th:classappend="${#httpServletRequest.requestURI == '/calendar'} ? 'bg-[#fccb35] text-gray-900' : 'text-gray-300 hover:bg-white/10 hover:text-white'"
+             class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors duration-150">
+            <i class="fa-solid fa-calendar-days w-4 text-center text-[15px]"></i>
+            Calendar
+          </a>
+        </li>
+        <li>
+          <a th:href="@{/campus-map}"
+             th:classappend="${#httpServletRequest.requestURI == '/campus-map'} ? 'bg-[#fccb35] text-gray-900' : 'text-gray-300 hover:bg-white/10 hover:text-white'"
+             class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors duration-150">
+            <i class="fa-solid fa-map-location-dot w-4 text-center text-[15px]"></i>
+            Campus Map
+          </a>
+        </li>
+        <li>
+          <a th:href="@{/analytics}"
+             th:classappend="${#httpServletRequest.requestURI == '/analytics'} ? 'bg-[#fccb35] text-gray-900' : 'text-gray-300 hover:bg-white/10 hover:text-white'"
+             class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors duration-150">
+            <i class="fa-solid fa-chart-bar w-4 text-center text-[15px]"></i>
+            Analytics
+          </a>
+        </li>
+        <li>
+          <a th:href="@{/history}"
+             th:classappend="${#httpServletRequest.requestURI == '/history'} ? 'bg-[#fccb35] text-gray-900' : 'text-gray-300 hover:bg-white/10 hover:text-white'"
+             class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors duration-150">
+            <i class="fa-solid fa-clock-rotate-left w-4 text-center text-[15px]"></i>
+            History
+          </a>
+        </li>
+        <!-- Superadmin-only, mirroring React's NAV_ITEMS `roles` filter and the
+             /accounts route guard. Backend authorization is still the real
+             gate; this just hides a link that would bounce anyway. -->
+        <li th:if="${currentUser != null and currentUser.role == 'Superadmin'}">
+          <a th:href="@{/accounts}"
+             th:classappend="${#httpServletRequest.requestURI == '/accounts'} ? 'bg-[#fccb35] text-gray-900' : 'text-gray-300 hover:bg-white/10 hover:text-white'"
+             class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors duration-150">
+            <i class="fa-solid fa-users w-4 text-center text-[15px]"></i>
+            Accounts
+          </a>
+        </li>
+      </ul>
+    </nav>
+
+    <div class="border-t border-white/10 px-3 py-4">
+      <!-- Plain top-level navigation to the backend's /logout, exactly like the
+           old app - Spring Security invalidates the session and redirects to
+           /login. GET /logout is enabled in SecurityConfig. -->
+      <a href="/logout"
+         class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-[#fccb35] transition-colors duration-150 hover:bg-white/10">
+        <i class="fa-solid fa-right-from-bracket w-4 text-center text-[15px]"></i>
+        Logout
+      </a>
+    </div>
+  </aside>
+</th:block>
+
+</body>
+</html>

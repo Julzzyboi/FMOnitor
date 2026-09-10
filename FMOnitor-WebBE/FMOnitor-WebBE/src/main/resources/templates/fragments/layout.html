@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<!--
+  The authenticated app shell: sidebar + topbar + a <main> slot for the page.
+  This is the Thymeleaf equivalent of React's <AdminLayout> (Sidebar + Topbar
+  + <Outlet/>).
+
+  A page uses it like this (see dashboard.html):
+
+    <html th:replace="~{fragments/layout :: page('Dashboard', ~{::content})}">
+      <body>
+        <div th:fragment="content"> ...page markup... </div>
+      </body>
+    </html>
+
+  - `pageTitle` fills both <title> and the topbar heading.
+  - `content` is the page's own fragment, dropped into <main>.
+
+  React's AdminLayout also had a "still checking auth / not authorized"
+  gate before rendering this shell. That's gone on purpose: these routes
+  are all behind Spring Security's `.anyRequest().authenticated()`, so an
+  unauthenticated request is redirected to /login by the server and never
+  reaches this template at all.
+-->
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:fragment="page(pageTitle, content)">
+<head th:replace="~{fragments/head :: head(${pageTitle})}"></head>
+<body>
+  <div class="flex min-h-screen bg-gray-50 opacity-0 animate-[fade-in_0.3s_ease-out_forwards]">
+    <th:block th:replace="~{fragments/sidebar :: sidebar}"></th:block>
+
+    <div class="flex min-h-screen flex-1 flex-col">
+      <th:block th:replace="~{fragments/topbar :: topbar(${pageTitle})}"></th:block>
+      <main class="flex-1">
+        <th:block th:replace="${content}"></th:block>
+      </main>
+    </div>
+  </div>
+
+  <script th:src="@{/js/shell.js}" src="/js/shell.js"></script>
+</body>
+</html>
