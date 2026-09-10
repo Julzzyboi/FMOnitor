@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<!--
+  Shared <head> content. A page pulls it in with:
+    <head th:replace="~{fragments/head :: head('Page title')}"></head>
+  The compiled Tailwind CSS (built from src/main/frontend) and the
+  Montserrat webfont are the two things every page needs.
+-->
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(pageTitle)">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title th:text="${pageTitle}">FMOnitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="crossorigin" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" th:href="@{/css/app.css}" href="/css/app.css" />
+  <link rel="icon" type="image/png" th:href="@{/images/logo.png}" href="/images/logo.png" />
+</head>
+<body></body>
+</html>

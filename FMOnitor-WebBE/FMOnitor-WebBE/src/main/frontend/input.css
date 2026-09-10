@@ -1,0 +1,59 @@
+@import 'tailwindcss';
+
+/* Tailwind v4 scans for class names itself, but only in files it knows about.
+   Point it at the Thymeleaf templates so their utility classes make it into
+   the compiled output. */
+@source '../resources/templates/**/*.html';
+
+/* Montserrat, matching the old React app. */
+body {
+  font-family: 'Montserrat', system-ui, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body {
+  overflow-x: clip;
+  max-width: 100%;
+  margin: 0;
+}
+
+* {
+  min-width: 0;
+}
+
+/* ---- Animations, carried over verbatim from the React app's index.css.
+   The keyframes are identical; what used to be React state toggling the
+   `animate-[...]` classes is now plain JavaScript doing the same (see the
+   per-page <script> blocks and /js/*.js). ---- */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in-bg {
+  from { opacity: 0; }
+  to { opacity: 0.35; }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes dropdown-in {
+  from { opacity: 0; transform: scale(0.96) translateY(-4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes loading-bar {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}

@@ -43,6 +43,20 @@
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
 
+		<!-- Server-rendered HTML views (the "Java frontend"). Templates live in
+		     src/main/resources/templates/, their compiled Tailwind CSS and
+		     images in src/main/resources/static/. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-thymeleaf</artifactId>
+		</dependency>
+		<!-- Thymeleaf + Spring Security integration: sec:authorize, etc. in
+		     templates, so nav items can be shown/hidden by role. -->
+		<dependency>
+			<groupId>org.thymeleaf.extras</groupId>
+			<artifactId>thymeleaf-extras-springsecurity5</artifactId>
+		</dependency>
+
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-jpa</artifactId>

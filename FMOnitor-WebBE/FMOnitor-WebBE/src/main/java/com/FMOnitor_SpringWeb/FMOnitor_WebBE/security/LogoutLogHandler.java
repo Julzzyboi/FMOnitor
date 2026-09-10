@@ -29,15 +29,13 @@ public class LogoutLogHandler implements LogoutSuccessHandler {
     private final tbl_LoginLogsRepo loginLogsRepo;
     private final tbl_UsersRepo usersRepo;
     private final RefreshTokenService refreshTokenService;
-    private final String frontendUrl;
     private final boolean secureCookie;
 
     public LogoutLogHandler(tbl_LoginLogsRepo loginLogsRepo, tbl_UsersRepo usersRepo,
-                             RefreshTokenService refreshTokenService, String frontendUrl, boolean secureCookie) {
+                             RefreshTokenService refreshTokenService, boolean secureCookie) {
         this.loginLogsRepo = loginLogsRepo;
         this.usersRepo = usersRepo;
         this.refreshTokenService = refreshTokenService;
-        this.frontendUrl = frontendUrl;
         this.secureCookie = secureCookie;
     }
 
@@ -72,6 +70,6 @@ public class LogoutLogHandler implements LogoutSuccessHandler {
             loginLogsRepo.save(new tbl_LoginLogs(null, email, name, picture, role, "LOGGED OUT", Instant.now()));
         }
 
-        response.sendRedirect(frontendUrl + "/");
+        response.sendRedirect("/login");
     }
 }

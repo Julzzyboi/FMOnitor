@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Sign in - FMOnitor')}"></head>
+<body>
+  <!-- Ported 1:1 from the old React Login.jsx - same markup, same Tailwind
+       classes, same animations. The staged entrance (card, then logo block,
+       then button, then terms) used React's animate-[...] classes with
+       `forwards` fill + per-element delays; that's unchanged here since it
+       was always pure CSS - React only ever rendered the classes once. -->
+  <div class="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-white pb-12 sm:pb-16">
+
+    <!-- DotGrid, top-left -->
+    <div class="absolute left-6 top-6 z-10 grid grid-cols-5 gap-2.5 opacity-90 sm:left-10 sm:top-10" aria-hidden="true">
+      <span th:each="i : ${#numbers.sequence(1, 15)}" class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
+    </div>
+
+    <!-- Building backdrop, fades to 35% opacity -->
+    <img
+      th:src="@{/images/building-bg.png}"
+      src="/images/building-bg.png"
+      alt=""
+      class="pointer-events-none absolute inset-0 h-full w-full animate-[fade-in-bg_1.4s_ease-out_forwards] object-cover object-center opacity-0"
+    />
+
+    <!-- WaveFooter -->
+    <svg
+      viewBox="0 0 1536 200"
+      preserveAspectRatio="none"
+      class="absolute bottom-0 left-0 h-20 w-full animate-[fade-in_1s_ease-out_forwards] opacity-0 sm:h-32"
+      aria-hidden="true"
+    >
+      <path d="M0 30 C 420 170, 780 170, 1040 90 C 1240 30, 1400 10, 1536 20 L1536 200 L0 200 Z" fill="#111112" />
+      <path
+        d="M0 30 C 420 170, 780 170, 1040 90 C 1240 30, 1400 10, 1536 20"
+        fill="none"
+        stroke="#f7a823"
+        stroke-width="12"
+        stroke-linecap="round"
+      />
+    </svg>
+
+    <!-- The sign-in card -->
+    <div class="relative z-10 w-[90%] max-w-md animate-[fade-in-up_0.6s_ease-out_forwards] rounded-2xl bg-white p-8 text-center opacity-0 shadow-[0_18px_42px_-11px_rgba(0,0,0,0.25)] sm:p-12">
+      <div class="flex flex-col items-center animate-[fade-in-up_0.6s_ease-out_0.1s_forwards] opacity-0">
+        <img th:src="@{/images/logo.png}" src="/images/logo.png" alt="FMOnitor" class="h-24 w-24 sm:h-28 sm:w-28" />
+        <h1 class="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">
+          <span class="text-[#fdcc36]">FMO</span><span class="text-gray-900">nitor</span>
+        </h1>
+        <p class="mt-1 text-xs font-semibold uppercase tracking-[0.25em] text-gray-700">
+          Facilities Management Office
+        </p>
+        <span class="mt-5 h-1 w-12 rounded-full bg-[#fdcc36]"></span>
+      </div>
+
+      <!-- Set by OAuth2LoginFailureHandler's redirect to /login?error=... -->
+      <p
+        th:if="${errorMessage}"
+        th:text="${errorMessage}"
+        class="mt-6 animate-[fade-in-up_0.6s_ease-out_forwards] rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-600"
+      ></p>
+
+      <!-- Kicks off Spring Security's Google OAuth2 redirect -->
+      <a
+        th:href="@{/oauth2/authorization/google}"
+        href="/oauth2/authorization/google"
+        class="mt-8 flex w-full cursor-pointer animate-[fade-in-up_0.6s_ease-out_0.2s_forwards] items-center justify-center gap-3 rounded-full border border-gray-200 bg-white px-6 py-3.5 text-base font-medium text-gray-700 opacity-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md hover:shadow-amber-100 active:translate-y-0"
+      >
+        <svg class="h-[18px] w-[18px]" viewBox="0 0 48 48" aria-hidden="true">
+          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.9-2.26 5.36-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+        </svg>
+        Sign in with Google
+      </a>
+
+      <p class="mt-6 animate-[fade-in-up_0.6s_ease-out_0.3s_forwards] text-sm leading-relaxed text-gray-500 opacity-0">
+        By signing in, you agree to our
+        <a href="#" class="font-semibold text-[#fdcc36] hover:underline">Privacy Policy</a>
+        <br class="hidden sm:block" /> and
+        <a href="#" class="font-semibold text-[#fdcc36] hover:underline">Terms and Conditions</a>.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
