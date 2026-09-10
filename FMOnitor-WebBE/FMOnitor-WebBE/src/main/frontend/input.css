@@ -1,9 +1,11 @@
 @import 'tailwindcss';
 
 /* Tailwind v4 scans for class names itself, but only in files it knows about.
-   Point it at the Thymeleaf templates so their utility classes make it into
-   the compiled output. */
+   Point it at the Thymeleaf templates AND the hand-written page scripts - the
+   scripts build table rows / chips / menus as HTML strings, so their utility
+   classes only exist there and would otherwise never make it into the build. */
 @source '../resources/templates/**/*.html';
+@source '../resources/static/js/**/*.js';
 
 /* Montserrat, matching the old React app. */
 body {

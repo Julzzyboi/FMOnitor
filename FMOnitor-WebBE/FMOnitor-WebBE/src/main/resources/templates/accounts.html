@@ -1,10 +1,375 @@
 <!DOCTYPE html>
-<!-- Accounts (Superadmin only). Real page not ported yet - WIP panel for now. -->
+<!--
+  Accounts (Superadmin only - PageController redirects everyone else).
+  Ported 1:1 from React's Accounts/ folder (index.jsx + StatCards, FilterDropdown,
+  UsersTable, UserCard, RowActionsMenu, Pagination, AddUserModal, EditUserModal,
+  UserDetailsModal, ConfirmModal, Toast, rowStyles.js, mockUsers.js's ROLES).
+
+  The server renders this static chrome + the (hidden) modal shells; /js/accounts.js
+  fetches GET /api/accounts, renders the table/cards/stat-cards, and does search /
+  role+status filter / view-mode / pagination client-side, plus every mutation
+  (invite, edit, disable, delete, restore, permanent delete) against the existing
+  /api/accounts REST endpoints - same as the React page did.
+-->
 <html lang="en" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{fragments/layout :: page('Accounts', ~{::content})}">
 <body>
   <div th:fragment="content" class="animate-[fade-in_0.4s_ease-out_forwards] p-4 sm:p-6 lg:p-8">
-    <th:block th:replace="~{fragments/wip :: wip('Accounts')}"></th:block>
+
+    <div id="accounts-root" class="flex flex-col gap-6">
+
+      <!-- Toolbar -->
+      <div class="flex flex-wrap animate-[fade-in-up_0.4s_ease-out_forwards] justify-end gap-3 opacity-0">
+        <button
+          type="button"
+          class="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-gray-600 transition-colors duration-150 hover:border-gray-300 hover:bg-gray-50"
+        >
+          <i class="fa-solid fa-download text-[14px]"></i>
+          Download
+        </button>
+        <button
+          th:if="${currentUser != null and currentUser.role == 'Superadmin'}"
+          type="button"
+          id="btn-add-user"
+          class="flex cursor-pointer items-center gap-2 rounded-lg bg-[#fccb35] px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-gray-900 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0"
+        >
+          <i class="fa-solid fa-user-plus text-[14px]"></i>
+          Add User
+        </button>
+      </div>
+
+      <!-- Stat cards -->
+      <div class="animate-[fade-in-up_0.4s_ease-out_0.05s_forwards] opacity-0">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div class="flex items-center justify-between rounded-xl bg-white p-5 shadow-sm">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Total Users</p>
+              <p class="mt-1.5 text-2xl font-bold text-gray-900" id="stat-total">0</p>
+            </div>
+            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#fccb35]/20">
+              <i class="fa-solid fa-users text-[20px] text-[#a3790f]"></i>
+            </div>
+          </div>
+          <div class="flex items-center justify-between rounded-xl bg-white p-5 shadow-sm">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Active Users</p>
+              <p class="mt-1.5 text-2xl font-bold text-gray-900" id="stat-active">0</p>
+            </div>
+            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50">
+              <i class="fa-solid fa-user-check text-[20px] text-emerald-600"></i>
+            </div>
+          </div>
+          <div class="flex items-center justify-between rounded-xl bg-white p-5 shadow-sm">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Inactive Users</p>
+              <p class="mt-1.5 text-2xl font-bold text-gray-900" id="stat-inactive">0</p>
+            </div>
+            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gray-100">
+              <i class="fa-solid fa-user-slash text-[20px] text-gray-500"></i>
+            </div>
+          </div>
+          <div class="flex items-center justify-between rounded-xl bg-white p-5 shadow-sm">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Unregistered Users</p>
+              <p class="mt-1.5 text-2xl font-bold text-gray-900" id="stat-unregistered">0</p>
+            </div>
+            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sky-50">
+              <i class="fa-solid fa-user-clock text-[20px] text-sky-600"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search + filters -->
+      <div class="flex animate-[fade-in-up_0.4s_ease-out_0.1s_forwards] flex-col gap-3 opacity-0 lg:flex-row lg:items-center">
+        <div class="relative flex-1">
+          <i class="fa-solid fa-magnifying-glass pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[16px] text-gray-400"></i>
+          <input
+            type="text"
+            id="accounts-search"
+            placeholder="Search by name, email, role, or status..."
+            class="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-11 pr-4 text-sm text-gray-700 placeholder:text-gray-400 transition-shadow duration-150 focus:border-[#fccb35] focus:outline-none focus:ring-2 focus:ring-[#fccb35]/30"
+          />
+        </div>
+
+        <div class="flex flex-wrap gap-3">
+          <!-- Role filter -->
+          <div class="relative" id="filter-role" data-filter="role">
+            <button
+              type="button"
+              data-filter-trigger
+              class="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors duration-150 hover:border-gray-300"
+            >
+              Role: <span class="font-semibold text-gray-900" data-filter-value>All</span>
+              <i class="fa-solid fa-chevron-down text-[12px] text-gray-400"></i>
+            </button>
+            <div
+              data-filter-menu
+              hidden
+              class="absolute right-0 z-40 mt-2 w-44 origin-top-right animate-[dropdown-in_0.15s_ease-out] overflow-hidden rounded-xl border border-gray-100 bg-white py-1.5 shadow-xl"
+            ></div>
+          </div>
+          <!-- Status filter (hidden while a view-mode toggle is active) -->
+          <div class="relative" id="filter-status" data-filter="status">
+            <button
+              type="button"
+              data-filter-trigger
+              class="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors duration-150 hover:border-gray-300"
+            >
+              Status: <span class="font-semibold text-gray-900" data-filter-value>All</span>
+              <i class="fa-solid fa-chevron-down text-[12px] text-gray-400"></i>
+            </button>
+            <div
+              data-filter-menu
+              hidden
+              class="absolute right-0 z-40 mt-2 w-44 origin-top-right animate-[dropdown-in_0.15s_ease-out] overflow-hidden rounded-xl border border-gray-100 bg-white py-1.5 shadow-xl"
+            ></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- View-mode toggles -->
+      <div class="flex flex-wrap animate-[fade-in-up_0.4s_ease-out_0.12s_forwards] gap-3 opacity-0">
+        <button
+          type="button"
+          id="toggle-disabled"
+          class="flex cursor-pointer items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3.5 py-2 text-xs font-bold uppercase tracking-wide text-orange-600 transition-colors duration-150 hover:bg-orange-100"
+        >
+          <i class="fa-solid fa-ban text-[14px]"></i>
+          Disabled Users
+          <span class="rounded-full bg-orange-200/70 px-1.5 py-0.5 text-[10px]" id="count-disabled">0</span>
+        </button>
+        <button
+          type="button"
+          id="toggle-deleted"
+          class="flex cursor-pointer items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2 text-xs font-bold uppercase tracking-wide text-red-600 transition-colors duration-150 hover:bg-red-100"
+        >
+          <i class="fa-solid fa-trash-can text-[14px]"></i>
+          Deleted Users
+          <span class="rounded-full bg-red-200/70 px-1.5 py-0.5 text-[10px]" id="count-deleted">0</span>
+        </button>
+      </div>
+
+      <!-- Table card -->
+      <div class="animate-[fade-in-up_0.4s_ease-out_0.15s_forwards] rounded-xl bg-white opacity-0 shadow-sm">
+        <div id="users-table-container"></div>
+        <div class="border-t border-gray-100">
+          <div id="pagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ MODALS (hidden shells, populated by accounts.js) ============ -->
+
+    <!-- Add / Invite -->
+    <div id="modal-add" hidden class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div data-modal-backdrop aria-hidden="true" class="absolute inset-0 bg-black/50"></div>
+      <form
+        id="form-add"
+        class="relative w-full max-w-lg animate-[fade-in-up_0.25s_ease-out_forwards] rounded-2xl bg-white p-6 opacity-0 shadow-2xl sm:p-8"
+      >
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-bold text-gray-900">Invite people</h3>
+          <button type="button" data-modal-close aria-label="Close"
+            class="cursor-pointer rounded-md p-1.5 text-gray-400 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-600">
+            <i class="fa-solid fa-xmark text-[16px]"></i>
+          </button>
+        </div>
+
+        <div class="mt-6 flex flex-col gap-1.5 sm:flex-row sm:items-stretch sm:gap-0">
+          <div class="flex flex-1 items-center rounded-lg border border-gray-200 focus-within:border-[#fccb35] focus-within:ring-2 focus-within:ring-[#fccb35]/30 sm:rounded-r-none sm:border-r-0">
+            <input
+              type="text"
+              id="add-emails"
+              placeholder="Email or group, separated by commas"
+              class="w-full bg-transparent px-3.5 py-2.5 text-sm text-gray-900 outline-none placeholder:text-gray-400"
+            />
+          </div>
+          <select id="add-role"
+            class="border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 focus:outline-none sm:border-x-0">
+          </select>
+          <button type="submit"
+            class="flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-[#fccb35] px-5 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 sm:rounded-l-none">
+            <i class="fa-solid fa-paper-plane text-[14px]"></i>
+            Invite
+          </button>
+        </div>
+
+        <p id="add-error" hidden class="mt-2 text-sm text-red-600"></p>
+
+        <p class="mt-3 text-xs text-gray-400">
+          Everyone invited gets the <span class="font-semibold text-gray-500" id="add-role-label">Requestor</span> role.
+          They'll receive an email with a link to sign in and activate their account.
+        </p>
+      </form>
+    </div>
+
+    <!-- Edit -->
+    <div id="modal-edit" hidden class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div data-modal-backdrop aria-hidden="true" class="absolute inset-0 bg-black/50"></div>
+      <form
+        id="form-edit"
+        class="relative w-full max-w-md animate-[fade-in-up_0.25s_ease-out_forwards] rounded-2xl bg-white p-6 opacity-0 shadow-2xl sm:p-8"
+      >
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-bold text-gray-900">Edit User</h3>
+          <button type="button" data-modal-close aria-label="Close"
+            class="cursor-pointer rounded-md p-1.5 text-gray-400 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-600">
+            <i class="fa-solid fa-xmark text-[16px]"></i>
+          </button>
+        </div>
+
+        <!-- AvatarPicker -->
+        <div class="mt-6 flex flex-col items-center gap-3">
+          <label class="group relative block h-20 w-20 cursor-pointer">
+            <div class="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-gray-400 transition-all duration-150 group-hover:brightness-90">
+              <img id="edit-avatar-img" alt="Avatar" class="h-full w-full object-cover" hidden />
+              <i id="edit-avatar-icon" class="fa-solid fa-user text-[32px] text-white"></i>
+            </div>
+            <span class="pointer-events-none absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-[#fccb35] text-gray-900 shadow-sm">
+              <i class="fa-solid fa-camera text-[14px]"></i>
+            </span>
+            <input type="file" accept="image/*" id="edit-avatar-file" class="sr-only" />
+          </label>
+          <p class="text-xs text-gray-400">Click the photo to change it</p>
+        </div>
+
+        <div class="mt-6 flex flex-col gap-4">
+          <label class="flex flex-col gap-1.5">
+            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Name</span>
+            <input type="text" id="edit-name" required
+              class="rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 focus:border-[#fccb35] focus:outline-none focus:ring-2 focus:ring-[#fccb35]/30" />
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Role</span>
+            <select id="edit-role"
+              class="rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 focus:border-[#fccb35] focus:outline-none focus:ring-2 focus:ring-[#fccb35]/30">
+            </select>
+          </label>
+        </div>
+
+        <div class="mt-8 flex justify-end gap-3">
+          <button type="button" data-modal-close
+            class="cursor-pointer rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-600 transition-colors duration-150 hover:bg-gray-50">
+            Cancel
+          </button>
+          <button type="submit"
+            class="cursor-pointer rounded-lg bg-[#fccb35] px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0">
+            Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Details -->
+    <div id="modal-details" hidden class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div data-modal-backdrop aria-hidden="true" class="absolute inset-0 bg-black/50"></div>
+      <div class="relative w-full max-w-md animate-[fade-in-up_0.25s_ease-out_forwards] rounded-2xl bg-white p-6 opacity-0 shadow-2xl sm:p-8">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-bold text-gray-900">User Details</h3>
+          <button type="button" data-modal-close aria-label="Close"
+            class="cursor-pointer rounded-md p-1.5 text-gray-400 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-600">
+            <i class="fa-solid fa-xmark text-[16px]"></i>
+          </button>
+        </div>
+
+        <div class="mt-6 flex flex-col items-center gap-3">
+          <div class="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-gray-400">
+            <img id="details-avatar-img" alt="" class="h-full w-full object-cover" hidden />
+            <i id="details-avatar-icon" class="fa-solid fa-user text-[32px] text-white"></i>
+          </div>
+          <div class="text-center">
+            <p class="text-base font-bold text-gray-900" id="details-name"></p>
+            <p class="text-sm text-gray-500" id="details-email"></p>
+          </div>
+        </div>
+
+        <div class="mt-6" id="details-rows">
+          <div class="flex items-center justify-between border-b border-gray-50 py-3">
+            <span class="text-xs font-semibold uppercase tracking-wide text-gray-400">Role</span>
+            <span class="text-sm text-gray-900" id="details-role"></span>
+          </div>
+          <div class="flex items-center justify-between border-b border-gray-50 py-3">
+            <span class="text-xs font-semibold uppercase tracking-wide text-gray-400">Status</span>
+            <span class="text-sm text-gray-900" id="details-status"></span>
+          </div>
+          <div class="flex items-center justify-between border-b border-gray-50 py-3 last:border-0">
+            <span class="text-xs font-semibold uppercase tracking-wide text-gray-400">Date Created</span>
+            <span class="text-sm text-gray-900" id="details-date"></span>
+          </div>
+          <div class="flex items-center justify-between border-b border-gray-50 py-3 last:border-0" id="details-purge-days-row" hidden>
+            <span class="text-xs font-semibold uppercase tracking-wide text-gray-400">Auto-Delete In</span>
+            <span class="text-sm text-gray-900" id="details-purge-days"></span>
+          </div>
+          <div class="flex items-center justify-between border-b border-gray-50 py-3 last:border-0" id="details-purge-date-row" hidden>
+            <span class="text-xs font-semibold uppercase tracking-wide text-gray-400">Permanent Deletion Date</span>
+            <span class="text-sm text-red-600" id="details-purge-date"></span>
+          </div>
+        </div>
+
+        <!-- normal actions -->
+        <div class="mt-8 flex flex-col gap-2.5 sm:flex-row" id="details-actions-normal">
+          <button type="button" data-details-action="edit"
+            class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-emerald-700">
+            <i class="fa-solid fa-pen text-[14px]"></i> Edit
+          </button>
+          <button type="button" data-details-action="disable" id="details-btn-disable"
+            class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-orange-600">
+            <i class="fa-solid fa-ban text-[14px]"></i> Disable
+          </button>
+          <button type="button" data-details-action="delete"
+            class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-red-700">
+            <i class="fa-solid fa-trash text-[14px]"></i> Delete
+          </button>
+        </div>
+        <!-- deleted actions -->
+        <div class="mt-8 flex flex-col gap-2.5 sm:flex-row" id="details-actions-deleted" hidden>
+          <button type="button" data-details-action="restore"
+            class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-emerald-700">
+            <i class="fa-solid fa-arrow-rotate-left text-[14px]"></i> Restore
+          </button>
+          <button type="button" data-details-action="permanentDelete"
+            class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-red-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-red-800">
+            <i class="fa-solid fa-trash-can text-[14px]"></i> Delete Permanently
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirm -->
+    <div id="modal-confirm" hidden class="fixed inset-0 z-[70] flex items-center justify-center p-4">
+      <div data-modal-backdrop aria-hidden="true" class="absolute inset-0 bg-black/50"></div>
+      <div class="relative w-full max-w-sm animate-[fade-in-up_0.2s_ease-out_forwards] rounded-2xl bg-white p-6 text-center opacity-0 shadow-2xl">
+        <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full" id="confirm-icon-wrap">
+          <i class="fa-solid text-[20px]" id="confirm-icon"></i>
+        </div>
+        <h3 class="mt-4 text-base font-bold text-gray-900" id="confirm-title"></h3>
+        <p class="mt-1.5 text-sm text-gray-500" id="confirm-message"></p>
+        <div class="mt-6 flex gap-3">
+          <button type="button" data-modal-close
+            class="flex-1 cursor-pointer rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-600 transition-colors duration-150 hover:bg-gray-50">
+            Cancel
+          </button>
+          <button type="button" id="confirm-btn"
+            class="flex-1 cursor-pointer rounded-lg px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-150"></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" hidden
+      class="fixed bottom-6 left-1/2 z-[80] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 animate-[fade-in-up_0.3s_ease-out_forwards] sm:bottom-8 sm:left-auto sm:right-8 sm:w-auto sm:translate-x-0">
+      <div id="toast-inner" class="flex items-center gap-3 rounded-xl px-4 py-3.5 text-sm font-semibold text-white shadow-2xl">
+        <i id="toast-icon" class="fa-solid text-[20px] shrink-0 text-white"></i>
+        <span id="toast-message"></span>
+      </div>
+    </div>
+
+    <!-- Shared floating row-actions menu (body-level so the table's overflow doesn't clip it) -->
+    <div id="row-menu" hidden
+      class="fixed z-[100] w-40 animate-[dropdown-in_0.15s_ease-out] overflow-hidden rounded-xl border border-gray-100 bg-white py-1.5 text-left shadow-xl"></div>
+
+    <script th:src="@{/js/accounts.js}" src="/js/accounts.js"></script>
   </div>
 </body>
 </html>
