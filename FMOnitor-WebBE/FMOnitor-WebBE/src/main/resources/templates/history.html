@@ -1,10 +1,112 @@
 <!DOCTYPE html>
-<!-- History. Real page not ported yet - shows the WIP panel for now. -->
+<!--
+  Activity History. Ported 1:1 from React's History.jsx - same markup and
+  Tailwind classes. The server renders this static chrome; /js/history.js
+  fetches the login logs, merges the (still-mock) equipment logs, and fills
+  the tabs + table + pagination, doing the filtering/search/paging client-
+  side so it stays instant like the React page.
+-->
 <html lang="en" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{fragments/layout :: page('History', ~{::content})}">
 <body>
-  <div th:fragment="content" class="animate-[fade-in_0.4s_ease-out_forwards] p-4 sm:p-6 lg:p-8">
-    <th:block th:replace="~{fragments/wip :: wip('History')}"></th:block>
+  <div th:fragment="content" id="history-root"
+       class="animate-[fade-in_0.4s_ease-out_forwards] p-4 sm:p-6 lg:p-8">
+
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <h1 class="text-2xl font-bold text-gray-900">Activity History</h1>
+      <button
+        type="button"
+        disabled
+        class="flex cursor-not-allowed items-center gap-2 rounded-full bg-[#fccb35] px-5 py-2.5 text-sm font-semibold text-gray-900 opacity-50"
+      >
+        <i class="fa-solid fa-download text-[16px]"></i>
+        Download Logs
+      </button>
+    </div>
+
+    <!-- loading: spinner card only (React's `loading ? ... : ...`) -->
+    <div id="history-loading"
+         class="mt-8 flex flex-col items-center justify-center rounded-2xl border border-gray-100 bg-white py-24 shadow-sm">
+      <i class="fa-solid fa-spinner animate-spin text-[32px] text-[#fccb35]"></i>
+    </div>
+
+    <div id="history-content" hidden>
+      <!-- Filter tabs (filled by history.js - counts need the data) -->
+      <div id="history-tabs" class="mt-6 flex flex-wrap gap-2"></div>
+
+      <!-- Search / refine / sort bar -->
+      <div class="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+        <i class="fa-solid fa-magnifying-glass text-[16px] text-gray-400"></i>
+        <input
+          type="text"
+          id="history-search"
+          placeholder="Search logs by user, email, or log ID..."
+          class="min-w-0 flex-1 text-sm text-gray-700 outline-none placeholder:text-gray-400"
+        />
+        <button
+          type="button"
+          disabled
+          class="flex cursor-not-allowed items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-400"
+        >
+          <i class="fa-solid fa-filter text-[14px]"></i>
+          REFINE
+        </button>
+        <button
+          type="button"
+          disabled
+          class="flex cursor-not-allowed items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-400"
+        >
+          <i class="fa-solid fa-arrow-up-wide-short text-[14px]"></i>
+          SORT
+        </button>
+      </div>
+
+      <!-- Table -->
+      <div class="mt-4 overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm">
+        <table class="w-full min-w-[720px] text-left text-sm">
+          <thead>
+            <tr class="border-b border-gray-100 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              <th class="px-4 py-3">Login ID</th>
+              <th class="px-4 py-3">User</th>
+              <th class="px-4 py-3">Email</th>
+              <th class="px-4 py-3">Role</th>
+              <th class="px-4 py-3">Action</th>
+              <th class="px-4 py-3">Timestamp</th>
+            </tr>
+          </thead>
+          <tbody id="history-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500">
+        <p id="history-showing">Showing 0 of 0 records</p>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            id="history-prev"
+            disabled
+            class="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 disabled:cursor-not-allowed disabled:text-gray-400"
+          >
+            <i class="fa-solid fa-chevron-left text-[12px]"></i>
+            PREV
+          </button>
+          <span id="history-page" class="rounded-lg bg-[#fccb35] px-3 py-1.5 text-xs font-bold text-gray-900">1</span>
+          <span id="history-page-total" class="px-1 text-xs text-gray-400">of 1</span>
+          <button
+            type="button"
+            id="history-next"
+            disabled
+            class="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 disabled:cursor-not-allowed disabled:text-gray-400"
+          >
+            NEXT
+            <i class="fa-solid fa-chevron-right text-[12px]"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script th:src="@{/js/history.js}" src="/js/history.js"></script>
   </div>
 </body>
 </html>
