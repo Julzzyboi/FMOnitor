@@ -379,15 +379,15 @@ function AccountsContent() {
           onClick={() => toggleViewMode('disabled')}
           className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3.5 py-2 text-xs font-bold uppercase tracking-wide transition-colors duration-150 ${
             viewMode === 'disabled'
-              ? 'border-orange-500 bg-orange-500 text-white'
-              : 'border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-100'
+              ? 'border-gray-400 bg-gray-100 text-gray-900'
+              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
           }`}
         >
           <FontAwesomeIcon icon={faBan} className="h-3.5 w-3.5" />
           Disabled Users
           <span
             className={`rounded-full px-1.5 py-0.5 text-[10px] ${
-              viewMode === 'disabled' ? 'bg-white/25' : 'bg-orange-200/70'
+              viewMode === 'disabled' ? 'bg-gray-900/10' : 'bg-gray-200'
             }`}
           >
             {disabledCount}
@@ -398,13 +398,13 @@ function AccountsContent() {
           onClick={() => toggleViewMode('deleted')}
           className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3.5 py-2 text-xs font-bold uppercase tracking-wide transition-colors duration-150 ${
             viewMode === 'deleted'
-              ? 'border-red-600 bg-red-600 text-white'
-              : 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
+              ? 'border-gray-400 bg-gray-100 text-gray-900'
+              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
           }`}
         >
           <FontAwesomeIcon icon={faTrashCan} className="h-3.5 w-3.5" />
           Deleted Users
-          <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${viewMode === 'deleted' ? 'bg-white/25' : 'bg-red-200/70'}`}>
+          <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${viewMode === 'deleted' ? 'bg-gray-900/10' : 'bg-gray-200'}`}>
             {deletedCount}
           </span>
         </button>

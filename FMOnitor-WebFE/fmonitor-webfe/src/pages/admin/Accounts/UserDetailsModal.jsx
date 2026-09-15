@@ -91,7 +91,7 @@ function UserDetailsModal({ user, onClose, onEdit, onDisable, onDelete, onRestor
               <button
                 type="button"
                 onClick={() => onRestore(user)}
-                className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-emerald-700"
+                className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 transition-colors duration-150 hover:bg-gray-50"
               >
                 <FontAwesomeIcon icon={faArrowRotateLeft} className="h-3.5 w-3.5" />
                 Restore
@@ -99,7 +99,7 @@ function UserDetailsModal({ user, onClose, onEdit, onDisable, onDelete, onRestor
               <button
                 type="button"
                 onClick={() => onPermanentDelete(user)}
-                className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-red-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-red-800"
+                className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 transition-colors duration-150 hover:bg-gray-50"
               >
                 <FontAwesomeIcon icon={faTrashCan} className="h-3.5 w-3.5" />
                 Delete Permanently
@@ -110,7 +110,7 @@ function UserDetailsModal({ user, onClose, onEdit, onDisable, onDelete, onRestor
               <button
                 type="button"
                 onClick={() => onEdit(user)}
-                className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-emerald-700"
+                className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 transition-colors duration-150 hover:bg-gray-50"
               >
                 <FontAwesomeIcon icon={faPen} className="h-3.5 w-3.5" />
                 Edit
@@ -119,7 +119,7 @@ function UserDetailsModal({ user, onClose, onEdit, onDisable, onDelete, onRestor
                 <button
                   type="button"
                   onClick={() => onDisable(user)}
-                  className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-orange-600"
+                  className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 transition-colors duration-150 hover:bg-gray-50"
                 >
                   <FontAwesomeIcon icon={faBan} className="h-3.5 w-3.5" />
                   Disable
@@ -128,7 +128,7 @@ function UserDetailsModal({ user, onClose, onEdit, onDisable, onDelete, onRestor
               <button
                 type="button"
                 onClick={() => onDelete(user)}
-                className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-red-700"
+                className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 transition-colors duration-150 hover:bg-gray-50"
               >
                 <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
                 Delete

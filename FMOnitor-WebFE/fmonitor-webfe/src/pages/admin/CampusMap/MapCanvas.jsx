@@ -215,6 +215,8 @@ function MapCanvas({
   onEditItem,
   onDeleteItem,
   onAddEmbeddedItem,
+  onSelectionActiveChange,
+  closeSignal,
 }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
@@ -245,6 +247,24 @@ function MapCanvas({
   // a different marker while the sidebar's minimized keeps it minimized
   // rather than jumping back open on every click.
   const [minimized, setMinimized] = useState(false)
+  // Which storage/venue row (if any) is drilled into within the selected
+  // area - lifted up from AreaDetailsContent (rather than that component's
+  // own local state) so this component can swap DetailsSidebar's header
+  // between "area" and "item" modes (see the render below). Resets whenever
+  // the selection itself changes, same as it would have on remount before.
+  const [subItem, setSubItem] = useState(null)
+  useEffect(() => {
+    setSubItem(null)
+  }, [selected])
+
+  // Tells the parent whenever something here becomes selected/deselected -
+  // index.jsx uses this to auto-close the filter nav the instant a marker's
+  // clicked, so the two right-docked panels (this sidebar and the filter
+  // nav) never show stacked on top of each other at once.
+  useEffect(() => {
+    onSelectionActiveChange?.(!!selected)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected])
 
   // Map lifecycle - created once on mount, torn down on unmount. The explicit
   // .remove() matters because StrictMode double-invokes effects in dev; without
@@ -264,6 +284,14 @@ function MapCanvas({
       pitch: 0,
     })
     mapRef.current = map
+
+    // Google Maps-style zoom in/out control - no compass/pitch-reset button,
+    // just the two stacked +/- buttons. top-left because it's the one corner
+    // nothing else on this page ever docks to (the filter toggle/nav sit
+    // bottom-right and right-0 respectively) - a bottom or right position
+    // would end up hidden behind those at some point.
+    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-left')
+
     map.on('load', () => {
       applyLightPreset(map)
       setMapLoaded(true)
@@ -339,12 +367,15 @@ function MapCanvas({
     // while placing a new storage point doesn't also pop open its details.
     function flyToAndSelect(data, lngLat) {
       if (placementModeRef.current) return
-      // Whatever's currently shown closes the instant a different marker's
-      // clicked, rather than lingering through the ~1.5s flight to the new
-      // one - unmounts DetailsSidebar right away (see the render below), and
-      // the fresh mount once moveend fires plays its entrance animation for
-      // the new area same as any other first-time open.
-      setSelected(null)
+      // Selects immediately instead of waiting for the flyTo's 'moveend' -
+      // that previous gating made the sidebar's appearance depend entirely on
+      // how far the camera had to travel: near-instant for a marker already
+      // close to center, a full ~1.5s wait for one further away. That
+      // inconsistency read as some markers "working" (instant) and others
+      // "broken" (had to hold/wait) - it was really just the same delay,
+      // varying in length. The camera still flies to the point in the
+      // background; the details panel no longer waits on it.
+      setSelected({ data, lngLat })
       map.flyTo({
         center: lngLat,
         zoom: Math.max(map.getZoom(), 19),
@@ -352,7 +383,6 @@ function MapCanvas({
         duration: 1500,
         essential: true,
       })
-      map.once('moveend', () => setSelected({ data, lngLat }))
     }
 
     campuses.forEach((campus) => {
@@ -563,6 +593,14 @@ function MapCanvas({
     setMinimized(false)
   }
 
+  // The other direction of the single-panel rule above: index.jsx bumps
+  // closeSignal when the filter nav opens, which should close whatever's
+  // selected here. 0 is the initial value and never triggers this.
+  useEffect(() => {
+    if (closeSignal) handleCloseSelection()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [closeSignal])
+
   // Keeps the open sidebar's header (name/type/photo-derived icon) fresh
   // after an edit, and closes it entirely if the selected area no longer
   // exists in the data at all (e.g. deleted from elsewhere) - `selected.data`
@@ -609,30 +647,38 @@ function MapCanvas({
       >
         <MapLoadingOverlay label="Loading campus map…" />
       </div>
-      {selected && (() => {
-        const style = FACILITY_TYPE_STYLES[selected.data.type] ?? FACILITY_TYPE_STYLES.Venue
-        return (
-          <DetailsSidebar
-            icon={style.icon}
-            accentColor={style.color}
-            title={selected.data.name}
-            subtitle={selected.data.type}
-            minimized={minimized}
-            onToggleMinimize={() => setMinimized((v) => !v)}
-            onClose={handleCloseSelection}
-          >
-            <AreaDetailsContent
-              area={selected.data}
-              allFacilities={allFacilities}
-              onEditArea={onEditArea}
-              onDeleteArea={handleDeleteAreaWrapped}
-              onEditItem={onEditItem}
-              onDeleteItem={onDeleteItem}
-              onAddItem={(kind) => onAddEmbeddedItem(kind, selected.data.id)}
-            />
-          </DetailsSidebar>
-        )
-      })()}
+      {selected && (
+        <DetailsSidebar
+          // Keyed by the selected item so switching straight from one
+          // marker to another (without closing first) still unmounts and
+          // remounts this, replaying its entrance animation fresh instead
+          // of silently updating in place - selection now applies
+          // immediately (see flyToAndSelect) rather than via the old
+          // "clear, wait for moveend, then set" sequence that used to
+          // guarantee this same remount as a side effect.
+          key={`${selected.data.type}-${selected.data.id}`}
+          // Always the plain "Location Details" header now (no icon badge,
+          // no color tint) - one consistent panel design for every kind of
+          // location (area or drilled-into storage/venue item), matching
+          // AreaDetailsContent's single shared LocationDetailsBody layout.
+          title="Location Details"
+          minimized={minimized}
+          onToggleMinimize={() => setMinimized((v) => !v)}
+          onClose={handleCloseSelection}
+        >
+          <AreaDetailsContent
+            area={selected.data}
+            allFacilities={allFacilities}
+            subItem={subItem}
+            onSubItemChange={setSubItem}
+            onEditArea={onEditArea}
+            onDeleteArea={handleDeleteAreaWrapped}
+            onEditItem={onEditItem}
+            onDeleteItem={onDeleteItem}
+            onAddItem={(kind) => onAddEmbeddedItem(kind, selected.data.id)}
+          />
+        </DetailsSidebar>
+      )}
     </div>
   )
 }

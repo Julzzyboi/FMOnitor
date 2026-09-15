@@ -17,6 +17,13 @@ services:
         # own address (backend runs on the host too, via the port mapping above),
         # not a Docker-internal service name like "backend" the browser can't resolve.
         VITE_API_BASE_URL: http://localhost:8080
+        # Also baked in at build time - .dockerignore excludes .env from the
+        # build context on purpose, so these have to come in as build args
+        # instead. Docker Compose reads ${...} here from the root .env file
+        # (not passed to the container at runtime, just used to fill in this
+        # file) - add VITE_MAPBOX_TOKEN/VITE_MAPBOX_STYLE there.
+        VITE_MAPBOX_TOKEN: ${VITE_MAPBOX_TOKEN}
+        VITE_MAPBOX_STYLE: ${VITE_MAPBOX_STYLE}
     container_name: fmonitor-webfe
     ports:
       - "5173:80"

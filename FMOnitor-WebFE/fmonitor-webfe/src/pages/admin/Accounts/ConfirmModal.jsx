@@ -1,24 +1,30 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faCircleCheck, faTriangleExclamation, faBan } from '@fortawesome/free-solid-svg-icons'
 
+// Icon badges (top of the modal) keep their color per variant - that's just
+// a status indicator, not a button. The confirm BUTTON itself only stays
+// colored for `success` (Save/Invite's own confirmation, matching those
+// forms' already-yellow Save/Invite buttons) - warning/danger (Disable,
+// Delete, Delete Permanently) go plain, same as the equivalent buttons in
+// UserDetailsModal.
 const VARIANTS = {
   success: {
     icon: faCircleCheck,
     iconColor: 'text-emerald-600',
     iconBg: 'bg-emerald-50',
-    button: 'bg-emerald-600 hover:bg-emerald-700',
+    button: 'bg-[#fccb35] text-gray-900 hover:brightness-95',
   },
   danger: {
     icon: faTriangleExclamation,
     iconColor: 'text-red-600',
     iconBg: 'bg-red-50',
-    button: 'bg-red-600 hover:bg-red-700',
+    button: 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50',
   },
   warning: {
     icon: faBan,
     iconColor: 'text-amber-600',
     iconBg: 'bg-amber-50',
-    button: 'bg-amber-500 hover:bg-amber-600',
+    button: 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50',
   },
 }
 
@@ -48,7 +54,7 @@ function ConfirmModal({ title, message, confirmLabel = 'OK', variant = 'success'
           <button
             type="button"
             onClick={onConfirm}
-            className={`flex-1 cursor-pointer rounded-lg px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-150 ${style.button}`}
+            className={`flex-1 cursor-pointer rounded-lg px-4 py-2.5 text-sm font-semibold shadow-sm transition-colors duration-150 ${style.button}`}
           >
             {confirmLabel}
           </button>
