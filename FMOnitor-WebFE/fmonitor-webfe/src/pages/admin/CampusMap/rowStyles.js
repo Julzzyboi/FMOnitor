@@ -47,3 +47,15 @@ export const CAMPUS_AREA_TYPES = [
   'Gate',
   'Court',
 ]
+
+// No real inventory backend yet (no counts, no line items anywhere in the
+// data model) - this cycles through a fixed, plausible-looking sequence
+// (not random) so a given facility shows the same stub count on every
+// render/reload instead of jumping around, until a real inventory endpoint
+// exists to replace this. Shared between FilterNav's per-row counts and
+// AreaDetailsContent's "Items Available" so the two stay consistent with
+// each other for the same facility.
+const MOCK_ITEM_COUNTS = [8, 5, 6, 5, 4, 5, 6, 4, 6, 4, 4, 4, 2]
+export function mockItemCount(id) {
+  return MOCK_ITEM_COUNTS[id % MOCK_ITEM_COUNTS.length]
+}

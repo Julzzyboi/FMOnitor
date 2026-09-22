@@ -26,17 +26,17 @@ function ProfileDropdown() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label="Profile menu"
-        className="flex h-[45px] w-[45px] cursor-pointer items-center justify-center rounded-full text-[#fccb35] transition-colors duration-150 hover:bg-white/10 lg:text-black lg:hover:bg-gray-100"
+        className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-[#fccb35] transition-colors duration-150 hover:bg-white/10 lg:text-black lg:hover:bg-gray-100"
       >
         {user?.picture ? (
           <img
             src={user.picture}
             alt={user.name || 'Profile'}
             referrerPolicy="no-referrer"
-            className="h-9 w-9 rounded-full object-cover"
+            className="h-6 w-6 rounded-full object-cover"
           />
         ) : (
-          <FontAwesomeIcon icon={faCircleUser} className="h-7 w-7" />
+          <FontAwesomeIcon icon={faCircleUser} className="h-4 w-4" />
         )}
       </button>
 

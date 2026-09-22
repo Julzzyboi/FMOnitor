@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faMapLocationDot, faLocationCrosshairs } from '@fortawesome/free-solid-svg-icons'
+import { faLocationDot } from '@fortawesome/free-solid-svg-icons'
 import AdminPageShell from '../../../components/layout/AdminPageShell'
 import MapCanvas from './MapCanvas'
 import MapLoadingOverlay from './MapLoadingOverlay'
-import TypeFilterDropdown from './TypeFilterDropdown'
+import FilterNav from './FilterNav'
 import AddStorageModal from './AddStorageModal'
 import AddVenueModal from './AddVenueModal'
 import AddCampusAreaModal from './AddCampusAreaModal'
-import { FACILITY_TYPES, CAMPUS_AREA_TYPES } from './rowStyles'
+import { CAMPUS_AREA_TYPES, FACILITY_TYPES } from './rowStyles'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
@@ -35,8 +35,18 @@ function CampusMapContent() {
   const [campuses, setCampuses] = useState([])
   const [facilities, setFacilities] = useState([])
   const [loading, setLoading] = useState(true)
-  // Everything visible by default now, instead of starting empty - you can
-  // still narrow it down via the filter, but the map isn't blank on first load.
+  // Right-docked filter nav - closed by default, toggled by the floating
+  // location-pin button (see the bottom of this component's JSX). Only one
+  // of {this nav, MapCanvas's own details sidebar} is ever open at once -
+  // both dock to the same right edge, so showing both together read as a
+  // confusing "double navigation". Opening this one signals MapCanvas to
+  // close its selection (closeDetailsSignal); MapCanvas selecting something
+  // closes this one back (onSelectionActiveChange).
+  const [navOpen, setNavOpen] = useState(false)
+  const [closeDetailsSignal, setCloseDetailsSignal] = useState(0)
+  // Filters by facility TYPE (Building/Field/Grandstand/.../Venue/Storage),
+  // same as the original dropdown - not per individual facility. Everything
+  // visible by default, narrowed down by unchecking a type.
   const [visibleTypes, setVisibleTypes] = useState(() => new Set(FACILITY_TYPES))
   // Add flow: click one of the three "Add ___" buttons (either the toolbar's
   // own, or a "+ Add Storage/Venue" button inside a selected area's sidebar -
@@ -216,33 +226,38 @@ function CampusMapContent() {
 
   return (
     <div className="relative">
-      {/* Left, not right - the details sidebar docks to the right edge at
-          full height whenever something's selected, which would otherwise
-          sit on top of and hide these buttons entirely. */}
-      <div className="absolute left-4 top-4 z-10 flex flex-wrap gap-3">
-        <TypeFilterDropdown
-          visibleTypes={visibleTypes}
-          onToggleType={toggleType}
-          onSelectAll={selectAllTypes}
-          onClearAll={clearAllTypes}
-        />
+      {/* Floating toggle - fixed in the same spot regardless of the nav's own
+          open/closed state (a FAB, not something that slides with the panel),
+          so it's always reachable. Sits above the details sidebar (z-20) too
+          - toggling the filter nav should work even while something's
+          selected, even though the nav itself is then hidden behind it
+          (both dock to the same right edge; the sidebar wins on top). */}
+      <button
+        type="button"
+        onClick={() =>
+          setNavOpen((v) => {
+            const next = !v
+            if (next) setCloseDetailsSignal((n) => n + 1)
+            return next
+          })
+        }
+        aria-label={navOpen ? 'Close filters' : 'Open filters'}
+        className={`fixed bottom-6 right-6 z-30 flex h-14 w-14 cursor-pointer items-center justify-center rounded-full shadow-lg transition-all duration-150 hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 ${
+          navOpen ? 'bg-gray-900 text-white' : 'bg-[#fccb35] text-gray-900'
+        }`}
+      >
+        <FontAwesomeIcon icon={faLocationDot} className="h-5 w-5" />
+      </button>
 
-        <button
-          type="button"
-          onClick={() => startPlacing('area')}
-          className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3.5 py-2 text-xs font-bold uppercase tracking-wide shadow-sm transition-colors duration-150 ${
-            placingKind === 'area'
-              ? 'border-[#fccb35] bg-[#fccb35] text-gray-900'
-              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-          }`}
-        >
-          <FontAwesomeIcon
-            icon={placingKind === 'area' ? faLocationCrosshairs : faMapLocationDot}
-            className="h-3.5 w-3.5"
-          />
-          {placingKind === 'area' ? 'Click the map…' : 'Add Area'}
-        </button>
-      </div>
+      <FilterNav
+        open={navOpen}
+        visibleTypes={visibleTypes}
+        onToggleType={toggleType}
+        onSelectAll={selectAllTypes}
+        onClearAll={clearAllTypes}
+        onAddArea={() => startPlacing('area')}
+        placingArea={placingKind === 'area'}
+      />
 
       <MapCanvas
         campuses={campuses}
@@ -259,6 +274,10 @@ function CampusMapContent() {
         onEditItem={(item) => setEditingItem({ kind: item.type === 'Storage' ? 'storage' : 'venue', data: item })}
         onDeleteItem={(item) => deleteItemByKind(item.type === 'Storage' ? 'storage' : 'venue', item.id)}
         onAddEmbeddedItem={startEmbeddedPlacing}
+        onSelectionActiveChange={(active) => {
+          if (active) setNavOpen(false)
+        }}
+        closeSignal={closeDetailsSignal}
       />
 
       {pendingPlacement?.kind === 'area' && (

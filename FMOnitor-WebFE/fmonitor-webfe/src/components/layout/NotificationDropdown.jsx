@@ -18,9 +18,9 @@ function NotificationDropdown() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label="Notifications"
-        className="flex h-[45px] w-[45px] cursor-pointer items-center justify-center rounded-full text-[#fccb35] transition-colors duration-150 hover:bg-white/10 lg:text-black lg:hover:bg-gray-100"
+        className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-[#fccb35] transition-colors duration-150 hover:bg-white/10 lg:text-black lg:hover:bg-gray-100"
       >
-        <FontAwesomeIcon icon={faBell} className="h-6 w-6" />
+        <FontAwesomeIcon icon={faBell} className="h-4 w-4" />
       </button>
 
       {open &&

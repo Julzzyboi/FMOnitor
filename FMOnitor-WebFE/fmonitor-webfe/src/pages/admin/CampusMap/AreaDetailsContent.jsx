@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faImage,
@@ -9,8 +10,9 @@ import {
   faPen,
   faTrash,
   faPlus,
+  faBoxOpen,
 } from '@fortawesome/free-solid-svg-icons'
-import { FACILITY_TYPE_STYLES } from './rowStyles'
+import { CAMPUS_AREA_TYPES, mockItemCount } from './rowStyles'
 
 function DetailRow({ label, value }) {
   return (
@@ -21,25 +23,64 @@ function DetailRow({ label, value }) {
   )
 }
 
-function EditDeleteRow({ onEdit, onDelete, deleteLabel }) {
+// One "Location Details" layout for whatever's currently being viewed -
+// the area itself, or a storage/venue row drilled into from it - matching
+// the same reference design for both instead of two different panel styles.
+// `onEdit`/`onDelete` act on whichever of those two `item` actually is.
+function LocationDetailsBody({ item, description, onEdit, onDelete, deleteError }) {
+  const available = mockItemCount(item.id)
   return (
-    <div className="mt-4 flex gap-2">
-      <button
-        type="button"
-        onClick={onEdit}
-        className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-xs font-bold uppercase tracking-wide text-gray-600 transition-colors duration-150 hover:bg-gray-50"
+    <div>
+      <div className="-mx-5 -mt-1 mb-4 flex h-40 w-[calc(100%+2.5rem)] items-center justify-center overflow-hidden bg-gray-100">
+        {item.photoUrl ? (
+          <img src={item.photoUrl} alt={item.name} className="h-full w-full object-cover" />
+        ) : (
+          <FontAwesomeIcon icon={faImage} className="h-8 w-8 text-gray-300" />
+        )}
+      </div>
+
+      <p className="text-lg font-bold text-gray-900">{item.name}</p>
+
+      <p className="mt-4 text-xs font-bold uppercase tracking-wide text-gray-400">Description</p>
+      <p className="mt-1 text-sm text-gray-500">{description}</p>
+
+      {/* No inventory backend yet - see mockItemCount in rowStyles.js. */}
+      <div className="mt-4">
+        <DetailRow label="Items Available" value={available} />
+        <DetailRow label="Items Not Available" value={0} />
+        <DetailRow label="Total Items" value={available} />
+      </div>
+
+      <Link
+        to="/inventory"
+        className="mt-5 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[#fccb35] py-2.5 text-sm font-bold text-gray-900 shadow-sm transition-colors duration-150 hover:bg-[#e6b82f]"
       >
-        <FontAwesomeIcon icon={faPen} className="h-3 w-3" />
-        Edit
-      </button>
-      <button
-        type="button"
-        onClick={onDelete}
-        className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-red-200 py-2 text-xs font-bold uppercase tracking-wide text-red-600 transition-colors duration-150 hover:bg-red-50"
-      >
-        <FontAwesomeIcon icon={faTrash} className="h-3 w-3" />
-        {deleteLabel || 'Delete'}
-      </button>
+        <FontAwesomeIcon icon={faBoxOpen} className="h-3.5 w-3.5" />
+        View Inventory
+      </Link>
+
+      {deleteError && (
+        <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">{deleteError}</p>
+      )}
+
+      <div className="mt-5 flex gap-2 border-t border-gray-100 pt-4">
+        <button
+          type="button"
+          onClick={onEdit}
+          className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2.5 text-xs font-bold uppercase tracking-wide text-gray-600 transition-colors duration-150 hover:bg-gray-50"
+        >
+          <FontAwesomeIcon icon={faPen} className="h-3 w-3" />
+          Edit Location
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          aria-label="Delete"
+          className="flex w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-red-200 text-red-600 transition-colors duration-150 hover:bg-red-50"
+        >
+          <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
+        </button>
+      </div>
     </div>
   )
 }
@@ -52,6 +93,12 @@ function EditDeleteRow({ onEdit, onDelete, deleteLabel }) {
 // the embedded counts/lists here stay correct even if Storage/Venue are
 // unchecked in that filter.
 //
+// `subItem`/`onSubItemChange` are lifted up to MapCanvas (not local state
+// here), only so MapCanvas can key its remount correctly - both this
+// component's own area view and its subItem view now share one "Location
+// Details" header, so MapCanvas's own DetailsSidebar header no longer needs
+// to know which is active.
+//
 // onEditArea/onDeleteArea act on `area` itself; onEditItem/onDeleteItem act
 // on whichever embedded storage/venue row is currently drilled into
 // (`subItem`). Delete calls resolve { ok, message } same as the add/edit
@@ -59,14 +106,24 @@ function EditDeleteRow({ onEdit, onDelete, deleteLabel }) {
 // inline instead of silently doing nothing. onAddItem(kind) arms the map's
 // placement mode for a new storage/venue already locked to this area - see
 // MapCanvas's onAddEmbeddedItem prop.
-function AreaDetailsContent({ area, allFacilities, onEditArea, onDeleteArea, onEditItem, onDeleteItem, onAddItem }) {
+function AreaDetailsContent({
+  area,
+  allFacilities,
+  subItem,
+  onSubItemChange,
+  onEditArea,
+  onDeleteArea,
+  onEditItem,
+  onDeleteItem,
+  onAddItem,
+}) {
   const [activeTab, setActiveTab] = useState('Storage')
-  const [subItem, setSubItem] = useState(null)
   const [deleteError, setDeleteError] = useState(null)
 
   const storageItems = allFacilities.filter((f) => f.type === 'Storage' && f.campusAreaId === area.id)
   const venueItems = allFacilities.filter((f) => f.type === 'Venue' && f.campusAreaId === area.id)
   const items = activeTab === 'Storage' ? storageItems : venueItems
+  const isArea = CAMPUS_AREA_TYPES.includes(area.type)
 
   const handleDeleteArea = async () => {
     if (!window.confirm(`Delete "${area.name}"? This can't be undone.`)) return
@@ -82,131 +139,107 @@ function AreaDetailsContent({ area, allFacilities, onEditArea, onDeleteArea, onE
     setDeleteError(null)
     const result = await onDeleteItem(subItem)
     if (result?.ok) {
-      setSubItem(null)
+      onSubItemChange(null)
     } else {
       setDeleteError(result?.message || 'Failed to delete this item.')
     }
   }
 
   if (subItem) {
-    const style = FACILITY_TYPE_STYLES[subItem.type]
     return (
       <div>
         <button
           type="button"
           onClick={() => {
-            setSubItem(null)
+            onSubItemChange(null)
             setDeleteError(null)
           }}
-          className="mb-4 flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-gray-500 transition-colors duration-150 hover:text-gray-700"
+          className="mb-3 flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-gray-500 transition-colors duration-150 hover:text-gray-700"
         >
           <FontAwesomeIcon icon={faChevronLeft} className="h-3 w-3" />
           Back to {area.name}
         </button>
 
-        <div className="flex flex-col items-center gap-2">
-          {subItem.photoUrl ? (
-            <img
-              src={subItem.photoUrl}
-              alt={subItem.name}
-              className="h-24 w-full rounded-xl object-cover"
-            />
-          ) : (
-            <div className={`flex h-12 w-12 items-center justify-center rounded-full text-white ${style.bgClass}`}>
-              <FontAwesomeIcon icon={style.icon} className="h-5 w-5" />
-            </div>
-          )}
-          <p className="text-sm font-bold text-gray-900">{subItem.name}</p>
-        </div>
-
-        <div className="mt-4">
-          <DetailRow label={`${subItem.type} ID`} value={subItem.id} />
-          <DetailRow label="Embedded In" value={area.name} />
-        </div>
-
-        {deleteError && (
-          <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">{deleteError}</p>
-        )}
-
-        <EditDeleteRow onEdit={() => onEditItem(subItem)} onDelete={handleDeleteItem} />
+        <LocationDetailsBody
+          item={subItem}
+          description={`${subItem.type} area located within ${area.name}.`}
+          onEdit={() => onEditItem(subItem)}
+          onDelete={handleDeleteItem}
+          deleteError={deleteError}
+        />
       </div>
     )
   }
 
   return (
-    <>
-      <div className="mb-4 flex h-32 w-full items-center justify-center overflow-hidden rounded-xl bg-gray-100">
-        {area.photoUrl ? (
-          <img src={area.photoUrl} alt={area.name} className="h-full w-full object-cover" />
-        ) : (
-          <FontAwesomeIcon icon={faImage} className="h-8 w-8 text-gray-300" />
-        )}
-      </div>
+    <div>
+      <LocationDetailsBody
+        item={area}
+        description={`${area.type} on campus.`}
+        onEdit={() => onEditArea(area)}
+        onDelete={handleDeleteArea}
+        deleteError={deleteError}
+      />
 
-      <DetailRow label="Area ID" value={area.id} />
-      <DetailRow label="Type" value={area.type} />
+      {isArea && (
+        <div className="mt-5 border-t border-gray-100 pt-4">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab('Storage')}
+              className={`flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-bold uppercase tracking-wide transition-colors duration-150 ${
+                activeTab === 'Storage'
+                  ? 'border-orange-500 bg-orange-50 text-orange-600'
+                  : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <FontAwesomeIcon icon={faBoxesStacked} className="h-3 w-3" />
+              Storage ({storageItems.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('Venue')}
+              className={`flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-bold uppercase tracking-wide transition-colors duration-150 ${
+                activeTab === 'Venue'
+                  ? 'border-purple-500 bg-purple-50 text-purple-600'
+                  : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <FontAwesomeIcon icon={faLandmark} className="h-3 w-3" />
+              Venues ({venueItems.length})
+            </button>
+          </div>
 
-      {deleteError && (
-        <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">{deleteError}</p>
-      )}
+          <div className="mt-3 flex flex-col gap-0.5">
+            {items.length === 0 && (
+              <p className="py-4 text-center text-xs text-gray-400">
+                No {activeTab.toLowerCase()} areas embedded here yet.
+              </p>
+            )}
+            {items.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onSubItemChange(item)}
+                className="flex cursor-pointer items-center justify-between rounded-lg px-2 py-2 text-left text-sm text-gray-700 transition-colors duration-150 hover:bg-gray-50"
+              >
+                {item.name}
+                <FontAwesomeIcon icon={faChevronRight} className="h-3 w-3 text-gray-300" />
+              </button>
+            ))}
+          </div>
 
-      <EditDeleteRow onEdit={() => onEditArea(area)} onDelete={handleDeleteArea} />
-
-      <div className="mt-5 flex gap-2">
-        <button
-          type="button"
-          onClick={() => setActiveTab('Storage')}
-          className={`flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-bold uppercase tracking-wide transition-colors duration-150 ${
-            activeTab === 'Storage'
-              ? 'border-orange-500 bg-orange-50 text-orange-600'
-              : 'border-gray-200 text-gray-500 hover:bg-gray-50'
-          }`}
-        >
-          <FontAwesomeIcon icon={faBoxesStacked} className="h-3 w-3" />
-          Storage ({storageItems.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('Venue')}
-          className={`flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-bold uppercase tracking-wide transition-colors duration-150 ${
-            activeTab === 'Venue'
-              ? 'border-purple-500 bg-purple-50 text-purple-600'
-              : 'border-gray-200 text-gray-500 hover:bg-gray-50'
-          }`}
-        >
-          <FontAwesomeIcon icon={faLandmark} className="h-3 w-3" />
-          Venues ({venueItems.length})
-        </button>
-      </div>
-
-      <div className="mt-3 flex flex-col gap-0.5">
-        {items.length === 0 && (
-          <p className="py-4 text-center text-xs text-gray-400">
-            No {activeTab.toLowerCase()} areas embedded here yet.
-          </p>
-        )}
-        {items.map((item) => (
           <button
-            key={item.id}
             type="button"
-            onClick={() => setSubItem(item)}
-            className="flex cursor-pointer items-center justify-between rounded-lg px-2 py-2 text-left text-sm text-gray-700 transition-colors duration-150 hover:bg-gray-50"
+            onClick={() => onAddItem(activeTab === 'Storage' ? 'storage' : 'venue')}
+            className="mt-2 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-300 py-2 text-xs font-bold uppercase tracking-wide text-gray-500 transition-colors duration-150 hover:border-[#fccb35] hover:text-[#a3790f]"
           >
-            {item.name}
-            <FontAwesomeIcon icon={faChevronRight} className="h-3 w-3 text-gray-300" />
+            <FontAwesomeIcon icon={faPlus} className="h-3 w-3" />
+            Add {activeTab === 'Storage' ? 'Storage' : 'Venue'}
           </button>
-        ))}
-      </div>
-
-      <button
-        type="button"
-        onClick={() => onAddItem(activeTab === 'Storage' ? 'storage' : 'venue')}
-        className="mt-2 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-300 py-2 text-xs font-bold uppercase tracking-wide text-gray-500 transition-colors duration-150 hover:border-[#fccb35] hover:text-[#a3790f]"
-      >
-        <FontAwesomeIcon icon={faPlus} className="h-3 w-3" />
-        Add {activeTab === 'Storage' ? 'Storage' : 'Venue'}
-      </button>
-    </>
+        </div>
+      )}
+    </div>
   )
 }
 
