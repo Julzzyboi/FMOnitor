@@ -16,8 +16,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-// Renamed from CampusController - "Campus" now means an individual area
-// (see CampusAreaController), this one owns just the boundary polygon.
 @RestController
 @RequestMapping("/api/campus-maps")
 public class CampusMapController {
@@ -30,11 +28,6 @@ public class CampusMapController {
         this.objectMapper = objectMapper;
     }
 
-    // boundary is [[lng, lat], [lng, lat], ...] - GeoJSON point order, matches
-    // Mapbox's own coordinate order.
-    // Plain class instead of a record - records need Java 16+, this project
-    // targets Java 8. Kept the same field-name-style accessor methods a
-    // record would have generated, so nothing else in this file needed to change.
     public static class CampusMapRequest {
         private final String name;
         private final List<List<Double>> boundary;
@@ -66,9 +59,6 @@ public class CampusMapController {
         return campusMapsRepo.findAll();
     }
 
-    // name/boundary are both optional here (unlike create) - only touches
-    // whichever field was actually sent, so re-drawing just the boundary
-    // doesn't require re-sending the name too.
     @PatchMapping("/{id}")
     public ResponseEntity<?> updateCampusMap(@PathVariable Long id, @RequestBody CampusMapRequest request) throws Exception {
         tbl_CampusMaps campusMap = campusMapsRepo.findById(id).orElse(null);
@@ -84,11 +74,6 @@ public class CampusMapController {
         return ResponseEntity.ok(campusMapsRepo.save(campusMap));
     }
 
-    // No corresponding cleanup of tbl_CampusAreas/tbl_venues/tbl_storage here -
-    // rows still pointing at this campusId just stop resolving to anything.
-    // Fine for a test/seed-data cleanup tool; a real "delete a live campus"
-    // flow would need to decide what happens to those first (reassign vs.
-    // cascade), which isn't this endpoint's job.
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteCampusMap(@PathVariable Long id) {
         if (!campusMapsRepo.findById(id).isPresent()) {

@@ -17,9 +17,6 @@ import org.springframework.security.web.authentication.logout.LogoutSuccessHandl
 import java.io.IOException;
 import java.time.Instant;
 
-// Mirrors what CustomOAuth2UserService does for LOGIN, but for the logout
-// flow instead - Spring Security still has the just-logged-out principal
-// available here, before the security context is fully cleared.
 public class LogoutLogHandler implements LogoutSuccessHandler {
 
     static final String REFRESH_COOKIE_NAME = "refresh_token";
@@ -53,10 +50,6 @@ public class LogoutLogHandler implements LogoutSuccessHandler {
             tbl_Users user = usersRepo.findByGoogleSub(googleSub).orElse(null);
             String role = user != null ? user.getRole() : DEFAULT_ROLE;
 
-            // The session cookie is what this app actually relies on day-to-day, and
-            // Spring Security already invalidates that. But the JWT refresh token is a
-            // second, independent credential handed out at the same login - logging out
-            // should kill it too, not leave it usable for another 7 days regardless.
             if (user != null) {
                 refreshTokenService.revokeAllForUser(user.getId());
             }

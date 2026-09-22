@@ -26,16 +26,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-// Optional Bearer-token auth path, alongside the existing session-cookie login -
-// this is what actually makes JWT expiration mean anything: a request carrying
-// an expired (or tampered/invalid) token now gets rejected instead of the token
-// just being generated and never checked by anything, as it was before.
-//
-// Known scope limit: this authenticates the request generically (enough to pass
-// SecurityConfig's .anyRequest().authenticated() and enforce expiry), but it
-// does not populate an OidcUser/OAuth2User principal - controllers that expect
-// one via @AuthenticationPrincipal (AuthController, AccountController's
-// Superadmin check) still only work through the session-cookie login path.
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -51,8 +41,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String header = request.getHeader("Authorization");
         if (header == null || !header.startsWith("Bearer ")) {
-            // No Bearer token on this request - not our concern, let the
-            // session-cookie login path (or lack of auth entirely) decide.
             filterChain.doFilter(request, response);
             return;
         }

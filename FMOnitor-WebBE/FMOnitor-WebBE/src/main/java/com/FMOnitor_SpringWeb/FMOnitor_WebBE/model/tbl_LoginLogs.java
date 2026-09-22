@@ -13,8 +13,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-// One row per LOGIN or LOGOUT - written by CustomOAuth2UserService (login) and
-// LogoutLogHandler (logout), which both already run at exactly those moments.
 @Entity
 @Table(name = "tbl_login_logs")
 @Data
@@ -37,7 +35,6 @@ public class tbl_LoginLogs {
     @Column(nullable = false)
     private String role;
 
-    // "LOGIN" or "LOGOUT"
     @Column(nullable = false)
     private String action;
 

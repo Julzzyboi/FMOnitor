@@ -29,9 +29,6 @@ import java.util.Set;
 @RequestMapping("/api/campus-areas")
 public class CampusAreaController {
 
-    // Matches the real area categories used in the UST campus GeoJSON dataset
-    // (areaType property) - a plain Set check, not an enum, so adding a new
-    // type later is a one-line change here rather than a schema/migration change.
     private static final Set<String> VALID_TYPES =
         SetUtil.of("Building", "Field", "Grandstand", "Pool", "In-Campus Grounds", "Garden", "Gate", "Court");
 
@@ -53,12 +50,6 @@ public class CampusAreaController {
         this.objectMapper = objectMapper;
     }
 
-    // height/footprint/photoUrl are all optional - per-area customization,
-    // defaulted (or just skipped) on the frontend when omitted. footprint is
-    // [[lng,lat],...], same convention as CampusMapController's boundary field.
-    // Plain class instead of a record - records need Java 16+, this project
-    // targets Java 8. Kept the same field-name-style accessor methods a
-    // record would have generated, so nothing else in this file needed to change.
     public static class CampusAreaRequest {
         private final String name;
         private final Double latitude;
@@ -150,9 +141,6 @@ public class CampusAreaController {
         return campusAreasRepo.findAll();
     }
 
-    // Every field optional - only whatever's actually sent gets touched, so
-    // e.g. re-drawing just the footprint doesn't require re-sending
-    // name/type/coordinates too.
     @PatchMapping("/{id}")
     public ResponseEntity<?> updateCampusArea(@PathVariable Long id, @RequestBody CampusAreaRequest request) {
         tbl_CampusAreas area = campusAreasRepo.findById(id).orElse(null);
@@ -189,10 +177,6 @@ public class CampusAreaController {
         return ResponseEntity.ok(campusAreasRepo.save(area));
     }
 
-    // Blocked while storage/venues are still embedded in this area, rather
-    // than silently orphaning those rows (they have a required, non-nullable
-    // campusAreaId with no DB-level cascade) - the caller has to remove the
-    // embedded items first.
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteCampusArea(@PathVariable Long id) {
         if (!campusAreasRepo.findById(id).isPresent()) {

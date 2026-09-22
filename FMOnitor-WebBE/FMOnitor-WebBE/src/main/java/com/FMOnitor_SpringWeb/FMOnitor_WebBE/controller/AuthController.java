@@ -23,9 +23,6 @@ public class AuthController {
     @GetMapping("/api/user")
     public Map<String, Object> getCurrentUser(@AuthenticationPrincipal OAuth2User principal) {
         String email = principal.getAttribute("email");
-        // Session only carries Google's identity claims - our app's own role
-        // lives in tbl_users and has to be looked up separately.
-        // MapUtil.of() would throw on a null role, hence HashMap here.
         String role = usersRepo.findByEmail(email).map(u -> u.getRole()).orElse(null);
 
         Map<String, Object> response = new HashMap<>();

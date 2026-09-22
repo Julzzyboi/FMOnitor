@@ -60,24 +60,10 @@ public class SecurityConfig {
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception{
 
         http.cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            // This is a JSON API consumed by a separate SPA, not server-rendered forms -
-            // CSRF protection is meant for the latter. CORS above already restricts which
-            // origins can call these endpoints at all. Without this, every POST/PUT/DELETE
-            // gets a generic 403 from Spring's default CSRF filter before reaching any controller.
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
-                // Spring Security 5.7's authorizeHttpRequests() only takes
-                // RequestMatcher varargs here, not a plain String pattern
-                // (that convenience overload came in a later version) -
-                // AntPathRequestMatcher is the Java-8-era way to express one.
                 .requestMatchers(new AntPathRequestMatcher("/api/products")).permitAll()
-                // Not session/JWT-authenticated like everything else here - its own auth
-                // check is the httpOnly refresh cookie, validated inside the controller
-                // itself (that's the whole point: it has to keep working after the
-                // access token has expired and the session may be long gone too).
                 .requestMatchers(new AntPathRequestMatcher("/api/auth/refresh", "POST")).permitAll()
-                // Mobile's equivalent of the web oauth2Login redirect - its own auth
-                // check is verifying the Google ID token itself, inside the controller.
                 .requestMatchers(new AntPathRequestMatcher("/api/auth/mobile/google", "POST")).permitAll()
                 .anyRequest().authenticated())
             .exceptionHandling(ex -> ex.defaultAuthenticationEntryPointFor(
@@ -91,9 +77,6 @@ public class SecurityConfig {
                 .logoutRequestMatcher(new AntPathRequestMatcher("/logout", "GET"))
                 .logoutSuccessHandler(new LogoutLogHandler(loginLogsRepo, usersRepo, refreshTokenService, FRONTEND_URL, secureCookie))
                 .deleteCookies("JSESSIONID"))
-            // Runs before the session-based login machinery, so a request carrying a
-            // Bearer token gets checked (and its expiration enforced) independently
-            // of whether a session cookie is also present.
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
@@ -101,12 +84,6 @@ public class SecurityConfig {
     private CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList(FRONTEND_URL));
-        // PATCH: /api/accounts/{id}/status. DELETE: /api/accounts/{id} (permanent
-        // delete). CORS blocks the browser's preflight for any method not listed
-        // here, before the request ever reaches a controller - curl/native clients
-        // aren't subject to this at all, which is exactly why testing an endpoint
-        // with curl alone doesn't catch a missing entry here. Learned this the
-        // hard way once already today; not repeating it for DELETE too.
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PATCH", "DELETE"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);

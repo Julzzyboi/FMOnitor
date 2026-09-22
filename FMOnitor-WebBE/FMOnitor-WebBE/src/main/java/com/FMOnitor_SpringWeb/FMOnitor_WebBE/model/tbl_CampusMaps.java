@@ -11,10 +11,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-// Renamed from tbl_Campuses - "Campus" now refers to the individual named
-// locations/areas on campus (tbl_CampusAreas), not the physical
-// campus/zone boundary itself. This table is purely the boundary polygon
-// GeofenceService checks area/venue/storage coordinates against.
 @Entity
 @Table(name = "tbl_campus_maps")
 @Data
@@ -29,8 +25,6 @@ public class tbl_CampusMaps {
     @Column(nullable = false)
     private String name;
 
-    // GeoJSON-style [[lng, lat], [lng, lat], ...] polygon, stored as raw JSON text -
-    // no PostGIS dependency needed for a simple point-in-polygon check at this scale.
     @Column(name = "boundary_json", nullable = false, columnDefinition = "TEXT")
     private String boundaryJson;
 }
