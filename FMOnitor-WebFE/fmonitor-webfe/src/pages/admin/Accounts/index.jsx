@@ -5,7 +5,7 @@ import AdminPageShell from '../../../components/layout/AdminPageShell'
 import StatCards from './StatCards'
 import FilterDropdown from './FilterDropdown'
 import UsersTable from './UsersTable'
-import Pagination from './Pagination'
+import Pagination from '../../../components/common/Pagination'
 import EditUserModal from './EditUserModal'
 import AddUserModal from './AddUserModal'
 import UserDetailsModal from './UserDetailsModal'
@@ -427,6 +427,7 @@ function AccountsContent() {
             totalItems={filteredUsers.length}
             pageSize={PAGE_SIZE}
             onPageChange={setPage}
+            label="users"
           />
         </div>
       </div>

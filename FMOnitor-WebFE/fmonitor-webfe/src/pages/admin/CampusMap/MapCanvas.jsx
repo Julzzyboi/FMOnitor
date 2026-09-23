@@ -153,6 +153,18 @@ function buildMarkerElement(facility, onSelectFacility) {
     svg.style.height = '14px'
   }
   if (interactive) {
+    // Our own label, attached to the pin itself (hangs just below the icon)
+    // so the icon and its name can never drift apart. The basemap's own POI
+    // labels are turned off (see applyLabelConfig) - they sit at the
+    // building's centroid while the pin sits at the facility's coordinates
+    // (lifted to rooftop height), which is what left the icon floating far
+    // from its label. Visibility (only when zoomed in) and color (dark by
+    // day, light by night) come from the .facility-label rules in index.css,
+    // driven by data attributes on the map container.
+    const label = document.createElement('span')
+    label.textContent = facility.name
+    label.className = 'facility-label pointer-events-none absolute left-1/2 top-full mt-0.5 w-max max-w-[9rem] -translate-x-1/2 text-center text-[11px] font-semibold leading-tight'
+    el.appendChild(label)
     el.addEventListener('click', (event) => {
       // Without this, Mapbox's own click-through-to-map handler fires too and
       // can close whatever this click was meant to open.
@@ -180,12 +192,29 @@ function isDaytime() {
   return hour >= 6 && hour < 18
 }
 
+// Labels only appear once zoomed in this far - at the campus overview they
+// all crowd on top of each other.
+const LABEL_MIN_ZOOM = 17.8
+
 function applyLightPreset(map) {
+  map.getContainer().dataset.night = String(!isDaytime())
   try {
     map.setConfigProperty('basemap', 'lightPreset', isDaytime() ? 'day' : 'night')
   } catch {
     // Not a Standard-style map (e.g. a custom Studio style) - no light preset
     // config to set, nothing to do.
+  }
+}
+
+// Standard's own POI icons+labels are hidden so each campus area's pin
+// carries its own label instead (see buildMarkerElement) - otherwise every
+// building would show its name twice, once at the pin and once at the
+// basemap's centroid.
+function applyLabelConfig(map) {
+  try {
+    map.setConfigProperty('basemap', 'showPointOfInterestLabels', false)
+  } catch {
+    // Not a Standard-style map - nothing to configure.
   }
 }
 
@@ -292,8 +321,14 @@ function MapCanvas({
     // would end up hidden behind those at some point.
     map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-left')
 
+    const updateLabelVisibility = () => {
+      map.getContainer().dataset.showLabels = String(map.getZoom() >= LABEL_MIN_ZOOM)
+    }
+    map.on('zoom', updateLabelVisibility)
     map.on('load', () => {
+      updateLabelVisibility()
       applyLightPreset(map)
+      applyLabelConfig(map)
       setMapLoaded(true)
     })
 

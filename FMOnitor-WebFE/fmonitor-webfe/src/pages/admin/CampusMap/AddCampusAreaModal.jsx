@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faXmark } from '@fortawesome/free-solid-svg-icons'
 import { CAMPUS_AREA_TYPES } from './rowStyles'
-import PhotoFileInput from './PhotoFileInput'
+import PhotoFileInput from '../../../components/common/PhotoFileInput'
 
 // Same create-vs-edit split as AddStorageModal/AddVenueModal (`editItem`
 // presence decides which), but for a campus area itself - name, type, and
