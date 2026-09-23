@@ -384,10 +384,19 @@ function MapCanvas({
       // out of frame above/behind it. Backing the zoom off in proportion to
       // the building's real height pulls the camera far enough back that the
       // whole building, roof and marker included, stays in view regardless
-      // of how tall it is - capped at 2 levels so a very short building isn't
-      // affected and an extremely tall one doesn't end up too far away to
-      // read as "zoomed in" at all.
-      const zoomPullback = Math.min(2, altitude / 40)
+      // of how tall it is.
+      //
+      // Capped at 1 level, not 2 - each zoom level roughly doubles the
+      // visible ground area, so backing off further than that suddenly
+      // exposes a lot more of the dense surrounding city that has to render
+      // all at once mid-flight, which showed up as actual stutter/dropped
+      // frames for a very tall building (confirmed: a longer duration didn't
+      // help, because that wasn't a pacing problem - there was more work to
+      // render than the animation, however long, could do smoothly). This is
+      // a real tradeoff: a very tall building's roof may sit a little
+      // further into frame-edge than a perfect fit, in exchange for the
+      // motion actually completing smoothly instead of stuttering.
+      const zoomPullback = Math.min(1, altitude / 60)
       // The intro sequence below calls setMinZoom() to permanently forbid
       // zooming out past the initial overview, for the rest of this map's
       // life. Backing off for a tall building can't be allowed to ask for
