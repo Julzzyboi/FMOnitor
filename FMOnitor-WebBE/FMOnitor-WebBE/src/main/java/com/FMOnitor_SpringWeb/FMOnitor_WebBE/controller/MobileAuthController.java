@@ -21,22 +21,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-// Mobile equivalent of the web app's oauth2Login redirect flow. The Flutter
-// app does the actual Google Sign-In itself (via the google_sign_in SDK) and
-// hands us the resulting ID token - this endpoint's job is entirely
-// server-side verification of that token, not initiating the sign-in.
-//
-// Response is plain JSON (accessToken + refreshToken), not a cookie: a raw
-// HTTP call from Flutter's default client doesn't handle cookies the way a
-// browser does, so the app is expected to store both itself.
 @RestController
 public class MobileAuthController {
 
-    // Admin/Superadmin are web-only roles - there's no admin dashboard on
-    // mobile for them to land on, so this is rejected here (the real
-    // enforcement, same philosophy as every other role check in this
-    // codebase - see RequireRole.jsx on the frontend) rather than trusting
-    // the Flutter app's own role branch to always run first.
     private static final Set<String> MOBILE_ROLES = SetUtil.of("Hauler", "Requestor");
 
     private final GoogleIdTokenVerifierService googleIdTokenVerifierService;
@@ -72,9 +59,6 @@ public class MobileAuthController {
         String name = (String) payload.get("name");
         String picture = (String) payload.get("picture");
 
-        // Same rejection rule as the web login path (unknown account, or
-        // Disabled/Deleted) - provisionFromGoogle throws for both since it's
-        // the one place that decision is made, for every login path.
         tbl_Users user;
         try {
             user = userProvisioningService.provisionFromGoogle(googleSub, email, name, picture);

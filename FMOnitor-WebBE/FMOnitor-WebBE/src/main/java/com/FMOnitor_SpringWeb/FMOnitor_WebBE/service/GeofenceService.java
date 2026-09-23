@@ -10,10 +10,6 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 
-// Pure-Java point-in-polygon geofencing - no PostGIS/DB extension needed at
-// this scale (a handful of campus boundaries, not a large geospatial dataset).
-// Boundary points are [lng, lat] pairs, matching GeoJSON convention, so this
-// lines up cleanly with Mapbox's own coordinate order once the UI work starts.
 @Service
 public class GeofenceService {
 
@@ -45,8 +41,6 @@ public class GeofenceService {
         }
     }
 
-    // Standard ray-casting algorithm: cast a ray from the point and count how many
-    // polygon edges it crosses - odd = inside, even = outside.
     private boolean pointInPolygon(double lat, double lng, List<List<Double>> polygon) {
         boolean inside = false;
         int n = polygon.size();

@@ -10,6 +10,9 @@ COPY . .
 
 # Vite bakes these into the compiled JS at build time - must be present
 # before "npm run build" runs, not supplied later like a normal env var.
+# .dockerignore excludes .env from the build context, so these can't just be
+# read from the file the way a local "npm run build" would - each one needed
+# here has to be threaded through explicitly as a build arg.
 ARG VITE_API_BASE_URL
 ARG VITE_MAPBOX_TOKEN
 ARG VITE_MAPBOX_STYLE

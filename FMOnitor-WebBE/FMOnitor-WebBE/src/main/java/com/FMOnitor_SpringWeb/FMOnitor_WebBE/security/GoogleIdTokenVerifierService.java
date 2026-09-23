@@ -13,15 +13,6 @@ import java.security.GeneralSecurityException;
 import java.util.Collections;
 import java.util.Optional;
 
-// Verifies a raw Google ID token sent up by the Flutter app's Google Sign-In
-// SDK. Audience is the SAME web OAuth client-id already used for the browser
-// login flow - the Flutter side is expected to request it via
-// GoogleSignIn(serverClientId: <that same client-id>), which is Google's own
-// documented pattern for "get an ID token my backend can verify" on mobile.
-// No separate Android/iOS client-id needed here (Android still needs its own
-// OAuth client registered in Google Cloud Console, tied to the app's package
-// name + SHA-1 signing fingerprint, for the sign-in flow to run at all - but
-// that's a Console configuration step, not something this verifier needs).
 @Service
 public class GoogleIdTokenVerifierService {
 
@@ -34,7 +25,6 @@ public class GoogleIdTokenVerifierService {
             .build();
     }
 
-    /** Returns the verified payload, or empty if the token is missing/invalid/expired/wrong-audience. */
     public Optional<GoogleIdToken.Payload> verify(String idTokenString) {
         try {
             GoogleIdToken idToken = verifier.verify(idTokenString);

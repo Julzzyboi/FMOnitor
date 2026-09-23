@@ -22,20 +22,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-// The access token (JwtService) is deliberately short-lived (see
-// app.jwt.expiration-ms) so a stolen one is only ever useful briefly. This
-// endpoint is what lets a still-logged-in user get a new one without going
-// back through the full Google OAuth2 dance - it trades the refresh token
-// for a fresh access token, and rotates the refresh token in the process
-// (old one is deleted the moment it's used, whether valid or not).
-//
-// Serves both platforms: web sends its refresh token via the httpOnly cookie
-// (never touches JS) and gets a rotated cookie back; mobile, which has no
-// browser-managed cookie jar, sends/receives it as a plain JSON field instead.
-//
-// Deliberately outside the normal session/JWT-authenticated request set
-// (permitAll in SecurityConfig) - its own auth check IS the refresh token
-// itself, validated against tbl_refresh_tokens below.
 @RestController
 public class AuthRefreshController {
 
@@ -78,9 +64,6 @@ public class AuthRefreshController {
         String newAccessToken = jwtService.generateToken(
             String.valueOf(user.getId()), user.getEmail(), user.getName(), user.getRole());
 
-        // Rotation: every refresh both consumes the old refresh token (above) and
-        // issues a brand new one, so a leaked-but-unused refresh token has a
-        // shrinking window rather than staying valid indefinitely.
         String newRawRefreshToken = refreshTokenService.issueToken(user.getId());
 
         Map<String, Object> responseBody = new HashMap<>();
@@ -97,8 +80,6 @@ public class AuthRefreshController {
                 .build();
             response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
         } else {
-            // Mobile: no cookie jar to rely on, so the rotated token has to
-            // come back in the body for the app to store itself.
             responseBody.put("refreshToken", newRawRefreshToken);
         }
 

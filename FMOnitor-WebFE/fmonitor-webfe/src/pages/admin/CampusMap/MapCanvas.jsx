@@ -400,7 +400,7 @@ function MapCanvas({
     // details straight up, then opens the docked sidebar once the fly
     // finishes. Gating placement mode here means clicking an existing marker
     // while placing a new storage point doesn't also pop open its details.
-    function flyToAndSelect(data, lngLat) {
+    function flyToAndSelect(data, lngLat, altitude = 0) {
       if (placementModeRef.current) return
       // Selects immediately instead of waiting for the flyTo's 'moveend' -
       // that previous gating made the sidebar's appearance depend entirely on
@@ -411,11 +411,41 @@ function MapCanvas({
       // varying in length. The camera still flies to the point in the
       // background; the details panel no longer waits on it.
       setSelected({ data, lngLat })
+      // Zoom 19 was tuned against a flat/short building. `center` is always a
+      // ground-level point - Mapbox's camera has no "look at this altitude"
+      // option in flyTo - so for a TALL building that same zoom+pitch puts
+      // the camera essentially against its base wall, with the marker (which
+      // sits at the rooftop - see the `altitude` marker option below) left
+      // out of frame above/behind it. Backing the zoom off in proportion to
+      // the building's real height pulls the camera far enough back that the
+      // whole building, roof and marker included, stays in view regardless
+      // of how tall it is - capped at 2 levels so a very short building isn't
+      // affected and an extremely tall one doesn't end up too far away to
+      // read as "zoomed in" at all.
+      const zoomPullback = Math.min(2, altitude / 40)
+      // The intro sequence below calls setMinZoom() to permanently forbid
+      // zooming out past the initial overview, for the rest of this map's
+      // life. Backing off for a tall building can't be allowed to ask for
+      // less than that floor - flyTo-ing to an unreachable zoom doesn't error,
+      // it just can't actually get there, and plays as "starts moving, then
+      // snaps back to close to where it started" once the animation's clock
+      // runs out. getMinZoom() reads whatever that floor currently is,
+      // whether or not the intro has even run yet on this particular call.
+      const targetZoom = Math.max(map.getMinZoom(), Math.max(map.getZoom(), 19) - zoomPullback)
+      // A short building barely changes zoom at all, so 1500ms reads as a
+      // normal, smooth fly-in. A tall one like Frassati can be backing off a
+      // full 2 zoom levels on top of the same pan+pitch change - cramming
+      // that much bigger a move into the exact same fixed duration is what
+      // read as jerky/rushed, not a dropped-frames problem. Stretching the
+      // duration out in proportion to how much zoom this particular building
+      // actually needs keeps the motion at roughly the same felt speed
+      // regardless of height, instead of the same time budget for a bigger job.
+      const duration = 1500 + zoomPullback * 500
       map.flyTo({
         center: lngLat,
-        zoom: Math.max(map.getZoom(), 19),
+        zoom: targetZoom,
         pitch: 60,
-        duration: 1500,
+        duration,
         essential: true,
       })
     }
@@ -485,7 +515,7 @@ function MapCanvas({
         type: 'fill',
         source: maskSourceId,
         slot: 'land',
-        paint: { 'fill-color': '#0b1220', 'fill-opacity': 0.55 },
+        paint: { 'fill-color': '#4b4b4b', 'fill-opacity': 0.55 },
       })
     }
 
@@ -611,7 +641,10 @@ function MapCanvas({
         ? (facility.height ?? DEFAULT_BUILDING_HEIGHT)
         : getGroundBuildingHeight(map, lngLat)
       return new mapboxgl.Marker({
-        element: buildMarkerElement(facility, (f) => flyToAndSelect(f, [f.longitude, f.latitude])),
+        // Same altitude the marker itself is placed at, so the fly-to camera
+        // pulls back by exactly as much as this specific building's real
+        // height calls for - not a separate, potentially-inconsistent guess.
+        element: buildMarkerElement(facility, (f) => flyToAndSelect(f, [f.longitude, f.latitude], altitude)),
         altitude,
       })
         .setLngLat(lngLat)

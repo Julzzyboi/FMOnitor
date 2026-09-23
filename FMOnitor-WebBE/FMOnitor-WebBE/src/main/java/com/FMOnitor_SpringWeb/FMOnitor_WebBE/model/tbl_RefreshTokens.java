@@ -13,11 +13,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-// Refresh tokens are opaque random strings, not JWTs - unlike the short-lived
-// access token, this one is always checked against the DB anyway (that's the
-// whole point: it's what makes revocation actually possible), so there's no
-// benefit to a self-contained signed token here. Only the HASH is stored,
-// same principle as never storing a plaintext password.
 @Entity
 @Table(name = "tbl_refresh_tokens")
 @Data

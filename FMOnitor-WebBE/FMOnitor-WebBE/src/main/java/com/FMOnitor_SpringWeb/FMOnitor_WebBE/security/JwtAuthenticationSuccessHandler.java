@@ -36,9 +36,6 @@ public class JwtAuthenticationSuccessHandler extends SimpleUrlAuthenticationSucc
         OAuth2User principal = (OAuth2User) authentication.getPrincipal();
         String accessToken = jwtService.generateToken(principal);
 
-        // Long-lived, server-side-revocable refresh token - handed to the browser
-        // only as an httpOnly cookie (never readable/stealable from JS, unlike the
-        // access token which the frontend deliberately keeps in localStorage today).
         String email = principal.getAttribute("email");
         tbl_Users user = usersRepo.findByEmail(email).orElse(null);
         if (user != null) {

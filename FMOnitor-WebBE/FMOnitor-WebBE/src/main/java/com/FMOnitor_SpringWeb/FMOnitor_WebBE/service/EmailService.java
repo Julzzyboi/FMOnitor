@@ -14,11 +14,6 @@ public class EmailService {
     private final String fromAddress;
     private final String frontendUrl;
 
-    // Deliberately a separate property from spring.mail.username: that one is
-    // the SMTP *login* Brevo authenticates the connection with (an
-    // auto-generated address like "b76a5f001@smtp-brevo.com"), not something
-    // a recipient should see as who the invite is "from" - this is the
-    // actual verified sender address configured in Brevo's dashboard.
     public EmailService(JavaMailSender mailSender,
                          @Value("${app.mail.from-address}") String fromAddress,
                          @Value("${app.frontend-url}") String frontendUrl) {
@@ -28,11 +23,6 @@ public class EmailService {
     }
 
     public void sendInvite(String toEmail, String toName, String invitedRole) {
-        // Plain SimpleMailMessage only ever sends text/plain - most mail clients
-        // auto-linkify a bare URL in that, but not reliably all of them. A real
-        // multipart message (HTML with a text/plain fallback) makes the invite
-        // link an actual clickable <a>, and still degrades gracefully for any
-        // client that only renders plain text.
         String plainText =
             "Hi " + toName + ",\n\n"
             + "You've been invited to join FMOnitor as a " + invitedRole + ".\n\n"
@@ -55,16 +45,10 @@ public class EmailService {
             helper.setText(plainText, html);
             mailSender.send(mimeMessage);
         } catch (MessagingException e) {
-            // Same failure shape as before (RuntimeException) so the try/catch
-            // around the call site in AccountController still catches it and
-            // keeps the account row instead of failing the whole invite.
             throw new RuntimeException("Failed to build invite email", e);
         }
     }
 
-    // toName/invitedRole ultimately come from admin input (email local-part or
-    // a typed name, and a role string) - escape before splicing into HTML so
-    // neither can break the markup or inject anything into the email body.
     private static String escapeHtml(String value) {
         return value
             .replace("&", "&amp;")

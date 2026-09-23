@@ -12,18 +12,11 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
-// Auto-purges accounts that have sat archived (status="Deleted") for 3+
-// months, so "Delete" from the Accounts page eventually means the same thing
-// as "Delete Permanently" even if nobody ever clicks the permanent option -
-// the archive isn't meant to be a place accounts sit forever.
 @Component
 public class AccountCleanupScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(AccountCleanupScheduler.class);
     private static final String STATUS_DELETED = "Deleted";
-    // 90 days as a simple stand-in for "3 months" - Instant is a fixed-length
-    // duration type with no calendar awareness (no .minusMonths()), and being
-    // off by a day or two either way doesn't matter for a retention window.
     private static final long RETENTION_DAYS = 90;
 
     private final tbl_UsersRepo usersRepo;
@@ -34,8 +27,6 @@ public class AccountCleanupScheduler {
         this.accountService = accountService;
     }
 
-    // Once a day at 3am - archived accounts aren't time-sensitive, so there's
-    // no need for anything more frequent.
     @Scheduled(cron = "0 0 3 * * *")
     public void purgeExpiredDeletedAccounts() {
         Instant cutoff = Instant.now().minus(RETENTION_DAYS, ChronoUnit.DAYS);

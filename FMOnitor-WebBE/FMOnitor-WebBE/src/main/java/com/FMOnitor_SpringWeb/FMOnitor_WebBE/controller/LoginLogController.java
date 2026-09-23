@@ -9,8 +9,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-// No @Bean/permitAll here - falls under SecurityConfig's default
-// ".anyRequest().authenticated()" rule, same as /api/user.
 @RestController
 @RequestMapping("/api/login-logs")
 public class LoginLogController {

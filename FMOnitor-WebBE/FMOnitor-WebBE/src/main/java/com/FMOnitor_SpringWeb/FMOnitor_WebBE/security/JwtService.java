@@ -19,9 +19,6 @@ import io.jsonwebtoken.security.Keys;
 @Service
 public class JwtService {
 
-    // Only used if, for some reason, no tbl_users row exists yet for this email -
-    // shouldn't normally happen, since CustomOAuth2UserService already saves/updates
-    // the user earlier in the same OAuth2 login flow, before this ever runs.
     private static final String DEFAULT_ROLE = "Requestor";
 
     private final SecretKey key;
@@ -40,8 +37,6 @@ public class JwtService {
         String email = principal.getAttribute("email");
         String name = principal.getAttribute("name");
 
-        // Real internal id + current role from tbl_users - not Google's own "sub"
-        // claim, and not a hardcoded placeholder like before.
         tbl_Users user = usersRepo.findByEmail(email).orElse(null);
         String userId = user != null ? String.valueOf(user.getId()) : null;
         String role = (user != null && user.getRole() != null) ? user.getRole() : DEFAULT_ROLE;
@@ -49,11 +44,6 @@ public class JwtService {
         return generateToken(userId, email, name, role);
     }
 
-    /**
-     * Core token-minting logic, usable without an OAuth2User principal - this is
-     * what /api/auth/refresh calls after validating a refresh token, since at
-     * that point all it has is the resolved tbl_users row, not a live OAuth2 session.
-     */
     public String generateToken(String userId, String email, String name, String role) {
         Instant now = Instant.now();
         return Jwts.builder()

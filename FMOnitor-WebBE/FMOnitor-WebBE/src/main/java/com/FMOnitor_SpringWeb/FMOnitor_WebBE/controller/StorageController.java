@@ -39,14 +39,6 @@ public class StorageController {
         this.objectMapper = objectMapper;
     }
 
-    // No campusId field here on purpose - a storage area is always embedded
-    // in a specific campus area, and inherits that area's own campusId
-    // (looked up server-side) rather than needing the client to know/send it
-    // separately. height/footprint are both optional - per-area 3D
-    // customization, defaulted (or just skipped) on the frontend when omitted.
-    // Plain class instead of a record - records need Java 16+, this project
-    // targets Java 8. Kept the same field-name-style accessor methods a
-    // record would have generated, so nothing else in this file needed to change.
     public static class StorageRequest {
         private final String name;
         private final Double latitude;
@@ -130,10 +122,6 @@ public class StorageController {
         return storageRepo.findAll();
     }
 
-    // Every field optional - only whatever's actually sent gets touched, so
-    // e.g. re-drawing just the footprint doesn't require re-sending
-    // name/coordinates too. Re-deriving campusId whenever campusAreaId
-    // changes keeps the two from ever drifting apart.
     @PatchMapping("/{id}")
     public ResponseEntity<?> updateStorage(@PathVariable Long id, @RequestBody StorageRequest request) {
         tbl_Storage storage = storageRepo.findById(id).orElse(null);

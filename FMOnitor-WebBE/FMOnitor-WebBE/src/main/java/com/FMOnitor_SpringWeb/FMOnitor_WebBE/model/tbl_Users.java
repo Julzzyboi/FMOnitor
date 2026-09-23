@@ -26,9 +26,6 @@ public class tbl_Users {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Google's "sub" claim - a stable, immutable ID for the account.
-    // Null until an invited (status=Unregistered) user actually logs in for
-    // the first time and claims this row.
     @Column(name = "google_sub", unique = true)
     private String googleSub;
 
@@ -43,15 +40,9 @@ public class tbl_Users {
     @Column(nullable = false)
     private String role;
 
-    // "Active" | "Inactive" | "Unregistered" | "Disabled" | "Deleted" - matches
-    // the frontend's Accounts page status vocabulary exactly.
     @Column(nullable = false)
     private String status;
 
-    // When status last became "Deleted" (soft-delete/archive) - null otherwise,
-    // including after a Restore. Drives the 3-month auto-purge: only archived
-    // rows have this set, and it always reflects the *most recent* archiving,
-    // not a stale one from before an earlier restore.
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
