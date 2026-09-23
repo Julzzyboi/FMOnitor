@@ -12,7 +12,7 @@ function getPageNumbers(current, total) {
   return withGaps
 }
 
-function Pagination({ page, totalPages, totalItems, pageSize, onPageChange }) {
+function Pagination({ page, totalPages, totalItems, pageSize, onPageChange, label = 'items' }) {
   const start = totalItems === 0 ? 0 : (page - 1) * pageSize + 1
   const end = Math.min(page * pageSize, totalItems)
 
@@ -20,7 +20,7 @@ function Pagination({ page, totalPages, totalItems, pageSize, onPageChange }) {
     <div className="flex flex-col items-center justify-between gap-3 px-6 py-4 sm:flex-row">
       <p className="text-xs text-gray-500">
         Showing <span className="font-semibold text-gray-700">{start}-{end}</span> of{' '}
-        <span className="font-semibold text-gray-700">{totalItems}</span> users
+        <span className="font-semibold text-gray-700">{totalItems}</span> {label}
       </p>
 
       <div className="flex items-center gap-1.5">

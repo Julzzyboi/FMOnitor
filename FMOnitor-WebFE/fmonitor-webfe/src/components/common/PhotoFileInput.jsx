@@ -43,8 +43,19 @@ function resizeImageFile(file) {
 // convention as Accounts/AvatarPicker.jsx, just laid out as a labeled form
 // field (with a preview + remove/change controls) instead of a circular
 // avatar. `value` is either a data URL, an empty string (explicitly
-// removed), or null/undefined (never set).
-function PhotoFileInput({ label = 'Photo (optional)', value, onChange }) {
+// removed), or null/undefined (never set). `previewSize` sets the preview/
+// dropzone box's own size classes - defaults to the original short-and-wide
+// box every other caller (CampusMap's Add Storage/Venue/Area modals) already
+// uses; Inventory's EquipmentModal passes a bigger square one instead.
+// `labelClassName` lets a caller match this label's size to its own other
+// field labels (EquipmentModal's are smaller than the original default).
+function PhotoFileInput({
+  label = 'Photo (optional)',
+  value,
+  onChange,
+  previewSize = 'h-28 w-full',
+  labelClassName = 'text-xs font-semibold uppercase tracking-wide text-gray-400',
+}) {
   const inputRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -67,10 +78,10 @@ function PhotoFileInput({ label = 'Photo (optional)', value, onChange }) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</span>
+      <span className={labelClassName}>{label}</span>
 
       {value ? (
-        <div className="relative h-28 w-full overflow-hidden rounded-lg border border-gray-200">
+        <div className={`relative ${previewSize} overflow-hidden rounded-lg border border-gray-200`}>
           <img src={value} alt="" className="h-full w-full object-cover" />
           <button
             type="button"
@@ -86,7 +97,7 @@ function PhotoFileInput({ label = 'Photo (optional)', value, onChange }) {
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={busy}
-          className="flex h-28 w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-300 text-gray-400 transition-colors duration-150 hover:border-[#fccb35] hover:text-[#a3790f] disabled:cursor-not-allowed"
+          className={`flex ${previewSize} cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-300 text-gray-400 transition-colors duration-150 hover:border-[#fccb35] hover:text-[#a3790f] disabled:cursor-not-allowed`}
         >
           <FontAwesomeIcon icon={busy ? faSpinner : faImage} className={`h-5 w-5 ${busy ? 'animate-spin' : ''}`} />
           <span className="text-xs font-semibold">{busy ? 'Processing…' : 'Click to upload a photo'}</span>

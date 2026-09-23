@@ -86,3 +86,17 @@ body {
     transform: translateX(200%);
   }
 }
+
+/* Campus-area pin labels (see MapCanvas's buildMarkerElement): hidden until
+   the map is zoomed in far enough, dark text by day / light text by night.
+   Both switches are data attributes MapCanvas sets on the map container. */
+.facility-label {
+  display: none;
+  color: #111827;
+}
+[data-show-labels='true'] .facility-label {
+  display: block;
+}
+[data-night='true'] .facility-label {
+  color: #f3f4f6;
+}

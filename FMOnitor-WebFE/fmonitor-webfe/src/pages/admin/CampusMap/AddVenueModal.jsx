@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faXmark } from '@fortawesome/free-solid-svg-icons'
-import PhotoFileInput from './PhotoFileInput'
+import PhotoFileInput from '../../../components/common/PhotoFileInput'
 
 // Mirrors AddStorageModal exactly - a venue is embedded in a campus area the
 // same way a storage area is, just its own dedicated table/type. `editItem`

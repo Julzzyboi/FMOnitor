@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faXmark } from '@fortawesome/free-solid-svg-icons'
-import PhotoFileInput from './PhotoFileInput'
+import PhotoFileInput from '../../../components/common/PhotoFileInput'
 
 // Shown right after a point's been clicked on the map (see index.jsx's
 // placement-mode flow) in create mode, or directly from a storage item's
