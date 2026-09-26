@@ -6,9 +6,9 @@ import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_UsersRepo;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.JwtService;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.security.RefreshTokenService;
 
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;

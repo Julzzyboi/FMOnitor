@@ -6,6 +6,8 @@ import { FACILITY_TYPE_STYLES, CAMPUS_AREA_TYPES } from './rowStyles'
 import DetailsSidebar from './DetailsSidebar'
 import AreaDetailsContent from './AreaDetailsContent'
 import MapLoadingOverlay from './MapLoadingOverlay'
+import MapLegend from './MapLegend'
+import { generateTrees, treesToGeoJSON, ringContains } from './trees'
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN
 
@@ -66,28 +68,44 @@ function facilityFootprintFeature(facility) {
   }
 }
 
-// Mapbox's own Standard-style 3D buildings have a real rooftop height per
-// building, but it's THEIR data - we don't control or store it. A `Marker`
-// always sits at ground level (altitude 0) unless told otherwise, which is
-// why a pin next to a tall building looks disconnected from its roof. This
-// reads whatever height Mapbox is actually rendering at that exact ground
-// point (its `building` featureset's own `height`/`render_height`, in
-// meters) so the marker's `altitude` option (see MarkerOptions - handled
-// natively by Mapbox's own 3D renderer, correct at any pitch/zoom with no
-// per-frame math needed here) can put it at the real rooftop instead.
-// Returns 0 (ground level) when nothing tall is rendered there yet - the
-// correct behavior for genuinely flat ground anyway (a field, a plaza).
-function getGroundBuildingHeight(map, lngLat) {
-  const point = map.project(lngLat)
-  const features = map.queryRenderedFeatures(point)
+function featureContains(geometry, lng, lat) {
+  if (!geometry) return false
+  const polygons = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.type === 'MultiPolygon' ? geometry.coordinates : []
+  return polygons.some(([outer, ...holes]) => outer && ringContains(outer, lng, lat) && !holes.some((h) => ringContains(h, lng, lat)))
+}
+
+// Rooftop height of whatever Mapbox building actually stands on this point.
+// The screen-space query alone was the source of the old "pins jump around"
+// bug - at a pitched camera the pixel under a ground point often belongs to a
+// taller neighbor's wall. Two things make it stable now: (1) a building only
+// counts if its own footprint polygon CONTAINS the point (camera angle can no
+// longer pull in a neighbor), and (2) the result is measured once per
+// facility and then locked (see MapCanvas's altitudeCacheRef) instead of
+// re-sampled on every rebuild. Returns 0 when no containing building is
+// rendered yet - caller just tries again later.
+function sampleBuildingHeight(map, lng, lat) {
+  const { x, y } = map.project([lng, lat])
+  const r = 24
+  const features = map.queryRenderedFeatures([[x - r, y - r], [x + r, y + r]])
   let maxHeight = 0
   for (const feature of features) {
     const height = feature.properties?.height ?? feature.properties?.render_height
-    if (typeof height === 'number' && height > maxHeight) {
-      maxHeight = height
-    }
+    if (typeof height !== 'number' || height <= maxHeight) continue
+    if (featureContains(feature.geometry, lng, lat)) maxHeight = height
   }
   return maxHeight
+}
+
+function facilityKey(facility) {
+  return `${facility.type}:${facility.id}:${facility.longitude}:${facility.latitude}`
+}
+
+// Saved data wins (an admin-set height, or the drawn footprint's default);
+// otherwise the locked rooftop measurement, otherwise ground until measured.
+function resolveMarkerAltitude(facility, cache) {
+  if (facility.height != null) return facility.height
+  if (facility.footprintJson) return DEFAULT_BUILDING_HEIGHT
+  return cache.get(facilityKey(facility)) ?? 0
 }
 
 // boundaryJson is stored as [[lng,lat], ...] without necessarily repeating the
@@ -196,6 +214,10 @@ function isDaytime() {
 // all crowd on top of each other.
 const LABEL_MIN_ZOOM = 17.8
 
+// Trees only draw once zoomed in this far - at the campus overview they'd
+// just be a green smear, and thousands of extrusions cost frame time.
+const TREE_MIN_ZOOM = 16.5
+
 function applyLightPreset(map) {
   map.getContainer().dataset.night = String(!isDaytime())
   try {
@@ -250,6 +272,14 @@ function MapCanvas({
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef([])
+  // facilityKey -> rooftop height, measured once and then locked so pins never
+  // shift again (see sampleBuildingHeight).
+  const altitudeCacheRef = useRef(new Map())
+  // Trees the building check has already looked at / thrown out, keyed by
+  // position so they survive the deterministic re-generation on every data
+  // change (see the trees effect).
+  const treeCheckedRef = useRef(new Set())
+  const treeRejectedRef = useRef(new Set())
   const [mapLoaded, setMapLoaded] = useState(false)
   // Guards the flat-to-tilted intro animation so it only ever plays once per
   // real page load - without this, it would replay every time `facilities`
@@ -311,6 +341,10 @@ function MapCanvas({
       // view. fill-extrusion layers (the 3D buildings) only actually read as
       // 3D once pitched; at 0 an extrusion's sides are invisible.
       pitch: 0,
+      // Collapses the long "© Mapbox © OpenStreetMap" strip into a small (i) button.
+      // Mapbox's terms require the logo and attribution to stay available, so
+      // it's compacted rather than removed.
+      attributionControl: false,
     })
     mapRef.current = map
 
@@ -319,6 +353,7 @@ function MapCanvas({
     // nothing else on this page ever docks to (the filter toggle/nav sit
     // bottom-right and right-0 respectively) - a bottom or right position
     // would end up hidden behind those at some point.
+    map.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right')
     map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-left')
 
     const updateLabelVisibility = () => {
@@ -374,6 +409,71 @@ function MapCanvas({
       mapRef.current = null
     }
   }, [])
+
+  // Decorative 3D trees scattered inside each campus boundary (see trees.js) -
+  // never on a Field, on a facility's own footprint, or on a Mapbox building.
+  // Scatter itself is deterministic from campus/facility data alone. Mapbox's
+  // own buildings can't be read outside the screen, so each tree is checked
+  // once, the first time it's on screen with the camera at rest: if a
+  // building's footprint contains it, it's dropped for good.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapLoaded) return
+
+    const treeKey = (t) => `${t.lng.toFixed(7)},${t.lat.toFixed(7)}`
+    const candidates = generateTrees(campuses, allFacilities)
+    const sourceId = 'campus-trees'
+    const render = () => {
+      const live = candidates.filter((t) => !treeRejectedRef.current.has(treeKey(t)))
+      const data = treesToGeoJSON(live)
+      if (map.getSource(sourceId)) {
+        map.getSource(sourceId).setData(data)
+        return
+      }
+      map.addSource(sourceId, { type: 'geojson', data })
+      const firstSymbolLayer = map.getStyle().layers.find((l) => l.type === 'symbol')
+      map.addLayer(
+        {
+          id: `${sourceId}-extrusion`,
+          type: 'fill-extrusion',
+          source: sourceId,
+          minzoom: TREE_MIN_ZOOM,
+          paint: {
+            'fill-extrusion-color': ['get', 'color'],
+            'fill-extrusion-base': ['get', 'base'],
+            'fill-extrusion-height': ['get', 'height'],
+            'fill-extrusion-opacity': 1,
+          },
+        },
+        firstSymbolLayer?.id,
+      )
+    }
+    render()
+
+    const checkTreesAgainstBuildings = () => {
+      if (map.isMoving() || map.getZoom() < TREE_MIN_ZOOM) return
+      const canvas = map.getCanvas()
+      let rejectedAny = false
+      for (const tree of candidates) {
+        const key = treeKey(tree)
+        if (treeCheckedRef.current.has(key)) continue
+        const { x, y } = map.project([tree.lng, tree.lat])
+        if (x < 0 || y < 0 || x > canvas.clientWidth || y > canvas.clientHeight) continue
+        treeCheckedRef.current.add(key)
+        const hits = map.queryRenderedFeatures([[x - 4, y - 4], [x + 4, y + 4]])
+        const inBuilding = hits.some(
+          (f) => typeof (f.properties?.height ?? f.properties?.render_height) === 'number' && featureContains(f.geometry, tree.lng, tree.lat),
+        )
+        if (inBuilding) {
+          treeRejectedRef.current.add(key)
+          rejectedAny = true
+        }
+      }
+      if (rejectedAny) render()
+    }
+    map.on('idle', checkTreesAgainstBuildings)
+    return () => map.off('idle', checkTreesAgainstBuildings)
+  }, [mapLoaded, campuses, allFacilities])
 
   // Crosshair while placement mode is active, so it's visually obvious the
   // next click means something different than usual.
@@ -637,31 +737,53 @@ function MapCanvas({
     }
 
     // Markers are cleared and rebuilt on every change rather than diffed -
-    // simpler, and fine at this scale (a handful of buildings, not thousands).
-    markersRef.current.forEach((marker) => marker.remove())
-    markersRef.current = facilities.map((facility) => {
-      const lngLat = [facility.longitude, facility.latitude]
-      // Sits on top of the facility's own admin-drawn extrusion when it has
-      // one (same height that extrusion itself renders at - see
-      // facilityFootprintFeature/DEFAULT_BUILDING_HEIGHT), otherwise reads
-      // whatever real building Mapbox is already rendering at that ground
-      // point so the pin lands on its actual rooftop instead of the ground.
-      const altitude = facility.footprintJson
-        ? (facility.height ?? DEFAULT_BUILDING_HEIGHT)
-        : getGroundBuildingHeight(map, lngLat)
-      return new mapboxgl.Marker({
-        // Same altitude the marker itself is placed at, so the fly-to camera
-        // pulls back by exactly as much as this specific building's real
-        // height calls for - not a separate, potentially-inconsistent guess.
-        element: buildMarkerElement(facility, (f) => flyToAndSelect(f, [f.longitude, f.latitude], altitude)),
-        altitude,
+    // simpler, and fine at this scale. Altitude comes from saved data or a
+    // locked rooftop measurement (see resolveMarkerAltitude), so a rebuild
+    // always puts each pin back at the exact same spot.
+    const markerByKey = new Map()
+    const placeMarkers = () => {
+      markersRef.current.forEach((marker) => marker.remove())
+      markerByKey.clear()
+      markersRef.current = facilities.map((facility) => {
+        const key = facilityKey(facility)
+        const marker = new mapboxgl.Marker({
+          // Read at click time so the fly-to pulls back by this building's
+          // real height even if it was only measured after the pin was made.
+          element: buildMarkerElement(facility, (f) =>
+            flyToAndSelect(f, [f.longitude, f.latitude], resolveMarkerAltitude(f, altitudeCacheRef.current)),
+          ),
+          altitude: resolveMarkerAltitude(facility, altitudeCacheRef.current),
+        })
+          .setLngLat([facility.longitude, facility.latitude])
+          .addTo(map)
+        markerByKey.set(key, marker)
+        return marker
       })
-        .setLngLat(lngLat)
-        .addTo(map)
-    })
+    }
+
+    placeMarkers()
+
+    // Building tiles finish loading after the first marker pass. Measure each
+    // still-unmeasured pin's rooftop once the camera is at rest, lock it in,
+    // and raise that one marker in place - no rebuild, so nothing else moves.
+    const measureMissingAltitudes = () => {
+      if (map.isMoving()) return
+      for (const facility of facilities) {
+        if (facility.height != null || facility.footprintJson) continue
+        const key = facilityKey(facility)
+        if (altitudeCacheRef.current.has(key)) continue
+        const height = sampleBuildingHeight(map, facility.longitude, facility.latitude)
+        if (height > 0) {
+          altitudeCacheRef.current.set(key, height)
+          markerByKey.get(key)?.setAltitude(height)
+        }
+      }
+    }
+    map.on('idle', measureMissingAltitudes)
 
     return () => {
       if (introTimeoutId) window.clearTimeout(introTimeoutId)
+      map.off('idle', measureMissingAltitudes)
     }
   }, [mapLoaded, campuses, facilities])
 
@@ -709,7 +831,7 @@ function MapCanvas({
   // The sidebar is a sibling docked to this same wrapper's right edge, not
   // positioned relative to any particular point on the map.
   return (
-    <div className="relative h-[calc(100vh-64px)] w-full overflow-hidden lg:h-[calc(100vh-80px)]">
+    <div className="relative h-[calc(100vh-48px)] w-full overflow-hidden lg:h-[calc(100vh-57px)]">
       <div
         ref={containerRef}
         className={`h-full w-full transition-opacity duration-700 ${mapLoaded ? 'opacity-100' : 'opacity-0'}`}
@@ -724,6 +846,7 @@ function MapCanvas({
       >
         <MapLoadingOverlay label="Loading campus map…" />
       </div>
+      <MapLegend />
       {selected && (
         <DetailsSidebar
           // Keyed by the selected item so switching straight from one

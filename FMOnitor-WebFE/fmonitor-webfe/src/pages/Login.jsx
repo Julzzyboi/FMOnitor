@@ -7,7 +7,7 @@ import buildingBg from '../assets/building-bg.png'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
-// Floor for how long the "signing you in" loader stays up after a successful
+// Floor for how long the "signing you in" loader starys up after a successful
 // Google login, even if the /api/user confirmation comes back almost
 // instantly - without this, a fast network made the loader flash for only a
 // few ms, which read as no transition at all rather than a smooth one.

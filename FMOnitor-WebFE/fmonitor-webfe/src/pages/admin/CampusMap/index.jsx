@@ -206,7 +206,7 @@ function CampusMapContent() {
   // that then jumps/resizes into the full map area once data arrives.
   if (loading) {
     return (
-      <div className="h-[calc(100vh-64px)] w-full lg:h-[calc(100vh-80px)]">
+      <div className="h-[calc(100vh-48px)] w-full lg:h-[calc(100vh-57px)]">
         <MapLoadingOverlay label="Loading campus map…" />
       </div>
     )
