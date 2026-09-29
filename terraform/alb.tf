@@ -1,7 +1,7 @@
 # Application Load Balancer + path routing. Billable - only created when
 # var.deploy_runtime = true. HTTP :80 only (no domain/cert yet).
 #   default        -> frontend target group (nginx :80)
-#   /api/*, /hello -> backend target group  (Spring :8080)
+#   /api/*         -> backend target group  (Spring :8080)
 
 locals {
   runtime_count = var.deploy_runtime ? 1 : 0
@@ -72,7 +72,7 @@ resource "aws_lb_listener_rule" "api" {
 
   condition {
     path_pattern {
-      values = ["/api/*", "/hello"]
+      values = ["/api/*"]
     }
   }
 }

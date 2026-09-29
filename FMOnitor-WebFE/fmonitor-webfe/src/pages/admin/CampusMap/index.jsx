@@ -2,20 +2,20 @@ import { useEffect, useMemo, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faLocationDot } from '@fortawesome/free-solid-svg-icons'
 import AdminPageShell from '../../../components/layout/AdminPageShell'
-import MapCanvas from './MapCanvas'
-import MapLoadingOverlay from './MapLoadingOverlay'
-import FilterNav from './FilterNav'
-import AddStorageModal from './AddStorageModal'
-import AddVenueModal from './AddVenueModal'
-import AddCampusAreaModal from './AddCampusAreaModal'
-import { CAMPUS_AREA_TYPES, FACILITY_TYPES } from './rowStyles'
+import MapCanvas from './map/MapCanvas'
+import MapLoadingOverlay from './map/MapLoadingOverlay'
+import FilterNav from './panels/FilterNav'
+import AddStorageModal from './modals/AddStorageModal'
+import AddVenueModal from './modals/AddVenueModal'
+import AddCampusAreaModal from './modals/AddCampusAreaModal'
+import { CAMPUS_AREA_TYPES, FACILITY_TYPES } from './facilityTypes'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
 // Which backend endpoint/table each "kind" of add-or-edit target maps to -
 // used by the generic postItem/patchItem/deleteItemByKind helpers below so
 // there's one copy of the fetch plumbing instead of three near-identical ones.
-const ENDPOINTS = { area: '/api/campus-areas', storage: '/api/storage', venue: '/api/venues' }
+const ENDPOINTS = { area: '/api/campus-facilities', storage: '/api/campus-storages', venue: '/api/campus-venues' }
 // Storage/Venue rows don't carry their own `type` column server-side (unlike
 // CampusAreas, which does) - this is what tags them the same way the initial
 // fetch already does, so the rest of this folder can keep reading
@@ -65,24 +65,24 @@ function CampusMapContent() {
   const [editingItem, setEditingItem] = useState(null)
 
   useEffect(() => {
-    // Four separate backend sources now: tbl_campus_maps (the boundary
-    // polygon, renamed from the old tbl_campuses), tbl_campus_areas (the 45
-    // general UST locations, each with its own real type), tbl_venues, and
-    // tbl_storage (their own dedicated tables). CampusAreas already carries
-    // its own `type`; venues/storage get one tagged on here as they come in -
-    // either way, the rest of this folder's rendering code (MapCanvas,
-    // rowStyles, the details panel) just reads `facility.type` generically
-    // and never needs to know which endpoint a given row actually came from.
+    // Four backend sources: tbl_campus_branches (each branch's boundary
+    // polygon), tbl_campus_facilities (every clickable location, each with its
+    // own real type), and tbl_campus_venues / tbl_campus_storages (each row
+    // pointing at the facility it's inside via facilityId). Facilities already
+    // carry their own `type`; venues/storage get one tagged on here as they
+    // come in - either way, the rest of this folder's rendering code
+    // (MapCanvas, facilityTypes, the details panel) just reads `facility.type`
+    // generically and never needs to know which endpoint a row came from.
     Promise.all([
-      fetch(`${API_BASE_URL}/api/campus-maps`, { credentials: 'include' }).then((res) => (res.ok ? res.json() : [])),
-      fetch(`${API_BASE_URL}/api/campus-areas`, { credentials: 'include' }).then((res) => (res.ok ? res.json() : [])),
-      fetch(`${API_BASE_URL}/api/venues`, { credentials: 'include' }).then((res) => (res.ok ? res.json() : [])),
-      fetch(`${API_BASE_URL}/api/storage`, { credentials: 'include' }).then((res) => (res.ok ? res.json() : [])),
+      fetch(`${API_BASE_URL}/api/campus-branches`, { credentials: 'include' }).then((res) => (res.ok ? res.json() : [])),
+      fetch(`${API_BASE_URL}${ENDPOINTS.area}`, { credentials: 'include' }).then((res) => (res.ok ? res.json() : [])),
+      fetch(`${API_BASE_URL}${ENDPOINTS.venue}`, { credentials: 'include' }).then((res) => (res.ok ? res.json() : [])),
+      fetch(`${API_BASE_URL}${ENDPOINTS.storage}`, { credentials: 'include' }).then((res) => (res.ok ? res.json() : [])),
     ])
-      .then(([campusMapData, campusAreaData, venueData, storageData]) => {
-        setCampuses(campusMapData)
+      .then(([branchData, facilityData, venueData, storageData]) => {
+        setCampuses(branchData)
         setFacilities([
-          ...campusAreaData,
+          ...facilityData,
           ...venueData.map((v) => ({ ...v, type: 'Venue' })),
           ...storageData.map((s) => ({ ...s, type: 'Storage' })),
         ])
@@ -264,8 +264,8 @@ function CampusMapContent() {
         facilities={visibleFacilities}
         allFacilities={facilities}
         placementMode={!!placingKind}
-        onPlacementClick={(lngLat, detectedName) => {
-          setPendingPlacement({ kind: placingKind, lngLat, presetCampusAreaId: placingPresetAreaId, detectedName })
+        onPlacementClick={(lngLat, detectedName, detectedShape) => {
+          setPendingPlacement({ kind: placingKind, lngLat, presetCampusAreaId: placingPresetAreaId, detectedName, detectedShape })
           setPlacingKind(null)
           setPlacingPresetAreaId(null)
         }}
@@ -285,6 +285,7 @@ function CampusMapContent() {
           lngLat={pendingPlacement.lngLat}
           campusOptions={campusOptions}
           initialName={pendingPlacement.detectedName}
+          detectedShape={pendingPlacement.detectedShape}
           onCancel={() => setPendingPlacement(null)}
           onSubmit={(payload) => handlePlacementSubmit('area', payload)}
         />

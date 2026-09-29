@@ -100,3 +100,47 @@ body {
 [data-night='true'] .facility-label {
   color: #f3f4f6;
 }
+
+/* Campus-area map pins (see MapCanvas's buildPinElement). The wiggle uses
+   `rotate` and the active state uses `scale` - separate properties from
+   `transform`, so the two never cancel each other out mid-animation. Both
+   pivot on the tip, so the point on the map never moves. */
+@keyframes pin-shake {
+  0%,
+  100% {
+    rotate: 0deg;
+  }
+  20% {
+    rotate: -9deg;
+  }
+  40% {
+    rotate: 7deg;
+  }
+  60% {
+    rotate: -4deg;
+  }
+  80% {
+    rotate: 2deg;
+  }
+}
+.map-pin-body {
+  transform-origin: 50% 100%;
+  transition: scale 150ms ease-out;
+}
+.map-pin:hover .map-pin-body {
+  animation: pin-shake 0.45s ease-in-out;
+}
+.map-pin-body path {
+  transition: fill 150ms ease-out;
+}
+.map-pin[data-active='true'] .map-pin-body {
+  scale: 1.15;
+}
+.map-pin[data-active='true'] .map-pin-body path {
+  fill: #fccb35;
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-pin:hover .map-pin-body {
+    animation: none;
+  }
+}

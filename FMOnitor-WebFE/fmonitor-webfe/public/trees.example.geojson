@@ -1,0 +1,23 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "kind": "row", "spacing": 8 },
+      "geometry": { "type": "LineString", "coordinates": [[120.9893, 14.609], [120.9899, 14.609]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "kind": "grove", "density": 0.6 },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[120.9893, 14.6092], [120.9899, 14.6092], [120.9899, 14.6095], [120.9893, 14.6095], [120.9893, 14.6092]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "kind": "tree", "size": 1.4 },
+      "geometry": { "type": "Point", "coordinates": [120.9896, 14.6098] }
+    }
+  ]
+}

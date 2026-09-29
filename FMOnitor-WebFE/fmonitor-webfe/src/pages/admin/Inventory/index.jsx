@@ -11,7 +11,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons'
 import AdminPageShell from '../../../components/layout/AdminPageShell'
 import Pagination from '../../../components/common/Pagination'
-import EquipmentModal from './EquipmentModal'
+import EquipmentModal from './modals/EquipmentModal'
 import { STORAGE_AREAS, CONDITIONS, AVAILABILITY_OPTIONS, INITIAL_EQUIPMENT } from './inventoryData'
 
 // 3 rows of the xl:4-column grid - a round number that also divides evenly
