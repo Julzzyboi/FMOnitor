@@ -35,9 +35,9 @@ variable "db_allocated_storage" {
 }
 
 variable "postgres_version" {
-  description = "PostgreSQL engine version"
+  description = "PostgreSQL engine version (project requirement: 18)"
   type        = string
-  default     = "16"
+  default     = "18"
 }
 
 variable "publicly_accessible" {
