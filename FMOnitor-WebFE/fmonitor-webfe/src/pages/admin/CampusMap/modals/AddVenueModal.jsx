@@ -20,6 +20,7 @@ function AddVenueModal({ lngLat, campusAreaOptions, editItem, presetCampusAreaId
   const [campusAreaId, setCampusAreaId] = useState(
     editItem?.facilityId ?? presetCampusAreaId ?? campusAreaOptions[0]?.id ?? '',
   )
+  const [description, setDescription] = useState(editItem?.description ?? '')
   const [photoUrl, setPhotoUrl] = useState(editItem?.photoUrl ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
@@ -31,6 +32,7 @@ function AddVenueModal({ lngLat, campusAreaOptions, editItem, presetCampusAreaId
     setError(null)
     const payload = {
       name: name.trim(),
+      description: description.trim(),
       facilityId: Number(campusAreaId),
       photoUrl,
     }
@@ -108,6 +110,16 @@ function AddVenueModal({ lngLat, campusAreaOptions, editItem, presetCampusAreaId
             </label>
           )}
 
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Description</span>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className="resize-none rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 focus:border-[#fccb35] focus:outline-none focus:ring-2 focus:ring-[#fccb35]/30"
+              placeholder="Optional - what's kept or held here"
+            />
+          </label>
           <PhotoFileInput value={photoUrl} onChange={setPhotoUrl} />
 
           {!isEdit && (

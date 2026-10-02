@@ -39,6 +39,9 @@ public class tbl_CampusVenues {
     @Column(name = "campus_venue_name", nullable = false)
     private String name;
 
+    @Column(name = "campus_venue_description", columnDefinition = "TEXT")
+    private String description;
+
     @Column(name = "campus_facility_id", nullable = false)
     private Long facilityId;
 

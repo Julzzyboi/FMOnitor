@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { icon } from '@fortawesome/fontawesome-svg-core'
@@ -7,7 +7,15 @@ import DetailsSidebar from '../panels/DetailsSidebar'
 import AreaDetailsContent from '../panels/AreaDetailsContent'
 import MapLoadingOverlay from './MapLoadingOverlay'
 import MapLegend from './MapLegend'
+import MapThemeToggle, { MAP_THEME_MODES, MAP_THEME_STORAGE_KEY } from './MapThemeToggle'
 import { generateTrees, treesToGeoJSON, ringContains } from './trees'
+import {
+  FACILITY_GEOFENCE_MARGIN_M,
+  campusGridAngle,
+  facilityGeofenceRing,
+  facilityOutline,
+  isWithinFacilityGeofence,
+} from './geofence'
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN
 
@@ -23,14 +31,18 @@ const DEFAULT_ZOOM = 20
 // override this with a custom Studio style URL if one's ever made.
 const MAP_STYLE = import.meta.env.VITE_MAPBOX_STYLE || 'mapbox://styles/mapbox/standard'
 
-// Our own 3D blocks (see facilityFootprintFeature) copy Standard style's
+// Paint for all our 3D buildings - the campus's own (campusBuildingFeatures)
+// and hand-corrected ones (facilityFootprintFeature). Copies Standard style's
 // `3d-building` layer: same color expression, read from the basemap's own
 // `colorBuildings` config, plus its rounded edges, ground shading and night
-// flood light - so a corrected building looks exactly like its neighbors in
-// every light preset, with nothing to keep in sync by hand.
+// flood light - so they look exactly like Mapbox's buildings in every light
+// preset, with nothing to keep in sync by hand.
 const OVERRIDE_LAYER_ID = 'facility-buildings-extrusion'
+const CAMPUS_BUILDINGS_LAYER_ID = 'campus-buildings-extrusion'
+const GEOFENCE_FILL_LAYER_ID = 'placement-geofence-fill'
+const GEOFENCE_EDGE_LAYER_ID = 'placement-geofence-edge'
 const basemapBuildingHsla = (i) => ['at', i, ['to-hsla', ['config', 'colorBuildings', 'basemap']]]
-const OVERRIDE_BLOCK_PAINT = {
+const CAMPUS_BUILDING_PAINT = {
   'fill-extrusion-color': [
     'hsl',
     ['max', 0, ['-', basemapBuildingHsla(0), 10]],
@@ -38,7 +50,7 @@ const OVERRIDE_BLOCK_PAINT = {
     basemapBuildingHsla(2),
   ],
   'fill-extrusion-height': ['get', 'height'],
-  'fill-extrusion-base': 0,
+  'fill-extrusion-base': ['coalesce', ['get', 'base'], 0],
   'fill-extrusion-opacity': 1,
   'fill-extrusion-ambient-occlusion-intensity': 0.15,
   'fill-extrusion-ambient-occlusion-ground-radius': ['interpolate', ['linear'], ['zoom'], 17, 0, 17.8, 8],
@@ -114,9 +126,30 @@ function detectBuildingShapeAt(map, point, lng, lat) {
 }
 
 // Every facility/storage/venue row carries its own height (0 for anything
-// that isn't a building) - the pin sits at that height, on the roof.
+// that isn't a building) - the pin sits at that height, on the roof. A
+// storage/venue carries its parent's outline and height, but one placed in
+// the ground band around the building (outside its walls) stands on the
+// ground instead of floating at roof height beside it.
 function markerAltitude(facility) {
+  if (facility.type === 'Storage' || facility.type === 'Venue') {
+    const ring = facilityOutline(facility)
+    if (ring && !ringContains(ring, facility.longitude, facility.latitude)) return 0
+  }
   return facility.height ?? 0
+}
+
+// Where a placement click lands on `facility`: on its roof when the click
+// hit its 3D building, otherwise on the ground.
+function placementPointOnFacility(map, e, facility) {
+  const height = facility.height ?? 0
+  if (height > 0) {
+    const roof = map.unproject(e.point, height)
+    const layers = [CAMPUS_BUILDINGS_LAYER_ID, OVERRIDE_LAYER_ID].filter((id) => map.getLayer(id))
+    const hitBuilding = layers.length > 0 && map.queryRenderedFeatures(e.point, { layers }).some((f) => featureContains(f.geometry, roof.lng, roof.lat))
+    const ring = facilityOutline(facility)
+    if (hitBuilding && ring && ringContains(ring, roof.lng, roof.lat)) return roof
+  }
+  return e.lngLat
 }
 
 // boundaryJson is stored as [[lng,lat], ...] without necessarily repeating the
@@ -145,6 +178,106 @@ const WORLD_RING = [
   [-180, -85],
 ]
 
+// The ground outside the campus is dimmed toward this (campus-mask fill).
+const OUTSIDE_CAMPUS_COLOR = '#4b4b4b'
+const BASEMAP_BUILDINGS = { featuresetId: 'buildings', importId: 'basemap' }
+// Where Standard's buildings come from, inside its 'basemap' import.
+const BASEMAP_BUILDING_SOURCE = 'composite'
+
+// Every building in the tiles loaded so far. This reads Mapbox's internal
+// per-import style (the public querySourceFeatures can't see sources inside
+// an import), so it falls back to the public query of what's on screen right
+// now if a future mapbox-gl version changes that.
+function loadedBasemapBuildings(map) {
+  try {
+    return map.style.getFragmentStyle('basemap').querySourceFeatures(BASEMAP_BUILDING_SOURCE, { sourceLayer: 'building' })
+  } catch {
+    try {
+      return map.queryRenderedFeatures({ target: BASEMAP_BUILDINGS })
+    } catch {
+      return [] // Not a Standard-style map - no buildings to style.
+    }
+  }
+}
+
+// Rings of every campus boundary, closed - used to decide which of the
+// city's buildings stand outside every campus.
+function campusRings(campuses) {
+  const rings = []
+  for (const campus of campuses) {
+    try {
+      const ring = closeRing(JSON.parse(campus.boundaryJson))
+      if (ring.length >= 4) rings.push(ring)
+    } catch {
+      // Malformed boundary - that campus just doesn't count as "inside".
+    }
+  }
+  return rings
+}
+
+// Ground layers (campus fill/outline, outside mask) share slot 'middle' with
+// our 3D buildings and must sit under them - a flat fill added after the
+// buildings is painted over them, tinting the campus yellow.
+function groundLayerBefore(map) {
+  return map.getLayer(CAMPUS_BUILDINGS_LAYER_ID) ? CAMPUS_BUILDINGS_LAYER_ID : undefined
+}
+
+// The campus fill/outline and outside mask also go under the selected
+// location's geofence highlight, so the mask never darkens the part of the
+// geofence band that crosses the campus boundary.
+function campusGroundLayerBefore(map) {
+  return map.getLayer(GEOFENCE_FILL_LAYER_ID) ? GEOFENCE_FILL_LAYER_ID : groundLayerBefore(map)
+}
+
+function outerRings(geometry) {
+  if (geometry?.type === 'Polygon') return [geometry.coordinates[0]]
+  if (geometry?.type === 'MultiPolygon') return geometry.coordinates.map((polygon) => polygon[0])
+  return []
+}
+
+// Mapbox's own buildings that stand inside a campus, as features for our
+// campus 3D layer - Mapbox's 3D buildings are switched off everywhere (see
+// applyBasemapConfig), so outside the campus stays flat.
+//
+// The same building comes back once per loaded tile, and from every zoom
+// level loaded; only the most detailed zoom is kept, where a building that
+// crosses a tile edge arrives as matching pieces of one outline. A building
+// counts as inside when the center of all its pieces is inside a campus, so
+// one straddling the boundary goes whichever way most of it lies. Height is
+// the tile's `height` - the same value saved for each facility, so pins and
+// roof clicks (both at the saved height) line up with the roofs drawn here.
+// Standard's own layer prefers `est_height`, which can differ.
+// `skipPins` are points of hand-corrected facilities - the building under
+// each is left out, since the override layer draws it at its fixed height.
+function campusBuildingFeatures(features, rings, skipPins) {
+  const maxZoom = Math.max(...features.map((f) => f._z ?? 0))
+  const pieces = new Map()
+  for (const feature of features) {
+    if ((feature._z ?? 0) !== maxZoom || feature.id == null) continue
+    if (feature.properties?.extrude !== 'true' || feature.properties?.underground !== 'false') continue
+    if (!pieces.has(feature.id)) pieces.set(feature.id, [])
+    pieces.get(feature.id).push(feature)
+  }
+  const out = []
+  for (const buildingPieces of pieces.values()) {
+    const points = buildingPieces.flatMap((f) => outerRings(f.geometry).flat())
+    if (points.length === 0) continue
+    const lng = points.reduce((sum, p) => sum + p[0], 0) / points.length
+    const lat = points.reduce((sum, p) => sum + p[1], 0) / points.length
+    if (!rings.some((ring) => ringContains(ring, lng, lat))) continue
+    if (skipPins.some(([pinLng, pinLat]) => buildingPieces.some((f) => featureContains(f.geometry, pinLng, pinLat)))) continue
+    for (const f of buildingPieces) {
+      const { est_height: estHeight, height, min_height: minHeight } = f.properties
+      out.push({
+        type: 'Feature',
+        properties: { height: Number(height ?? estHeight) || 0, base: minHeight > 0 ? minHeight : 0 },
+        geometry: f.geometry,
+      })
+    }
+  }
+  return out
+}
+
 function buildCampusMaskFeature(campuses) {
   const holes = []
   for (const campus of campuses) {
@@ -163,14 +296,20 @@ function buildCampusMaskFeature(campuses) {
   }
 }
 
-// Only campus-area-typed facilities (Building/Field/Gate/etc.) are
-// independently clickable - Venue/Storage markers render as plain, inert
-// pins. Their own details only ever show nested inside whichever campus
-// area they're embedded in (see AreaDetailsContent) or via the general type
-// filter making them visible at all; there's no per-marker click for them.
-// Teardrop outline in a 32x42 box: round head centered at (16,16), tip at
-// the bottom-center (16,41) - the tip is the exact spot the pin marks.
+// Location pin: teardrop outline in a 32x42 box, round head centered at
+// (16,16), tip at the bottom-center (16,41) - the tip is the spot it marks.
 const PIN_PATH = 'M16 41C16 41 2 26.5 2 16a14 14 0 1 1 28 0c0 10.5-14 25-14 25Z'
+// Storage/venue tag: a rounded square with a short pointer, in a 28x36 box, tip at
+// the bottom-center (14,35) - a different shape from the location pins, so
+// what's a place and what's a room inside it reads at a glance.
+const TAG_PATH = 'M8.5 2h11A6.5 6.5 0 0 1 26 8.5v11a6.5 6.5 0 0 1-6.5 6.5h-2L14 35l-3.5-9h-2A6.5 6.5 0 0 1 2 19.5v-11A6.5 6.5 0 0 1 8.5 2Z'
+
+// Only locations get a marker. Storage/venues have none of their own: their
+// counts ride on their location's pin (buildCountBadge) and their details
+// live in its panel. They share their location's geofence too.
+function hasMarker(facility) {
+  return isInteractiveFacility(facility)
+}
 
 // ids are only unique within a table, so selection is matched on type + id.
 function selectKey(facility) {
@@ -181,72 +320,114 @@ function isInteractiveFacility(facility) {
   return CAMPUS_AREA_TYPES.includes(facility.type)
 }
 
-// Clickable areas get a map-pin (colored teardrop, white disc, icon in the
-// type's color); inert Venue/Storage markers stay plain circles, so the
-// shape itself tells you what can be clicked.
-function buildPinElement(style) {
+function sizeIcon(container, px) {
+  const svg = container.querySelector('.map-pin-icon svg')
+  if (svg) {
+    svg.style.width = `${px}px`
+    svg.style.height = `${px}px`
+  }
+}
+
+// How many storage areas and venues sit inside each location, by location
+// id - storage/venues have no markers of their own; their counts ride on
+// their location's pin instead (see buildCountBadge).
+function countEmbedded(allFacilities) {
+  const counts = new Map()
+  for (const f of allFacilities) {
+    if (f.type !== 'Storage' && f.type !== 'Venue') continue
+    const entry = counts.get(f.facilityId) ?? { storage: 0, venue: 0 }
+    if (f.type === 'Storage') entry.storage++
+    else entry.venue++
+    counts.set(f.facilityId, entry)
+  }
+  return counts
+}
+
+// Small pill floating above a location pin: storage icon + count, venue icon
+// + count, in their own colors. Only kinds the location actually has are
+// shown; with neither, there's no badge at all.
+function buildCountBadge({ storage, venue }) {
+  if (!storage && !venue) return null
+  const segment = (type, count) => {
+    const { color, icon: faIcon } = FACILITY_TYPE_STYLES[type]
+    return `<span class="flex items-center gap-0.5" style="color:${color}"><span class="map-pin-badge-icon flex">${icon(faIcon).html[0]}</span><span>${count}</span></span>`
+  }
+  const badge = document.createElement('div')
+  badge.className = 'pointer-events-none absolute bottom-full left-1/2 mb-0.5 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-1.5 py-0.5 text-[10px] font-bold leading-none shadow-md'
+  badge.innerHTML = [storage && segment('Storage', storage), venue && segment('Venue', venue)].filter(Boolean).join('')
+  badge.querySelectorAll('.map-pin-badge-icon svg').forEach((svg) => {
+    svg.style.width = '9px'
+    svg.style.height = '9px'
+  })
+  return badge
+}
+
+// Colored teardrop, white disc, icon in the type's color, plus the count
+// badge above it. Shares the .map-pin classes (hover shake, active yellow -
+// see index.css); the inner wrapper takes those effects because Mapbox owns
+// the outer element's own `transform` (that's how it positions the marker).
+// The badge lives inside that wrapper, so it moves with the pin.
+function buildPinElement(style, counts) {
   const el = document.createElement('div')
   el.className = 'map-pin relative h-[42px] w-8 cursor-pointer'
-  // Inner wrapper takes the hover shake / active grow (the .map-pin rules in
-  // index.css) - Mapbox owns the outer element's own `transform` (that's how
-  // it positions the marker), so they can't go there.
   const pin = document.createElement('div')
   pin.className = 'map-pin-body relative h-full w-full'
   pin.innerHTML = `
     <svg viewBox="0 0 32 42" width="32" height="42" style="display:block;filter:drop-shadow(0 2px 2px rgba(0,0,0,0.35))">
-      <path d="${PIN_PATH}" fill="${style.color}" stroke="#fff" stroke-width="1.5" />
+      <path class="map-pin-shape" d="${PIN_PATH}" fill="${style.color}" stroke="#fff" stroke-width="1.5" />
       <circle cx="16" cy="16" r="9.5" fill="#fff" />
     </svg>
-    <span class="absolute left-4 top-4 flex -translate-x-1/2 -translate-y-1/2" style="color:${style.color}">${icon(style.icon).html[0]}</span>
+    <span class="map-pin-icon absolute left-4 top-4 flex -translate-x-1/2 -translate-y-1/2" style="color:${style.color}">${icon(style.icon).html[0]}</span>
   `
-  const iconSvg = pin.querySelector('span svg')
-  if (iconSvg) {
-    iconSvg.style.width = '11px'
-    iconSvg.style.height = '11px'
-  }
+  sizeIcon(pin, 11)
+  const badge = buildCountBadge(counts)
+  if (badge) pin.appendChild(badge)
   el.appendChild(pin)
   return el
 }
 
-function buildCircleElement(style) {
+// Storage/venue: rounded tag in its type's color (orange / purple) with a
+// white icon - smaller than a location pin, since it's a room inside one.
+// Storage/venues have no markers on the map; this is only the draggable
+// stand-in shown while one's pin is being moved ("Move pin").
+function buildTagElement(style) {
   const el = document.createElement('div')
-  // text-white here isn't decorative - the FontAwesome SVG below fills with
-  // currentColor, so this is what actually makes the icon white.
-  el.className = `flex h-8 w-8 items-center justify-center rounded-full border-2 border-white text-white shadow-md ${style.bgClass}`
-  el.innerHTML = icon(style.icon).html[0]
-  const svg = el.querySelector('svg')
-  if (svg) {
-    svg.style.width = '14px'
-    svg.style.height = '14px'
-  }
+  el.className = 'map-pin map-pin--tag relative h-9 w-7 cursor-pointer'
+  const tag = document.createElement('div')
+  tag.className = 'map-pin-body relative h-full w-full'
+  tag.innerHTML = `
+    <svg viewBox="0 0 28 36" width="28" height="36" style="display:block;filter:drop-shadow(0 2px 2px rgba(0,0,0,0.35))">
+      <path class="map-pin-shape" d="${TAG_PATH}" fill="${style.color}" stroke="#fff" stroke-width="1.5" />
+    </svg>
+    <span class="map-pin-icon absolute left-[14px] top-[14px] flex -translate-x-1/2 -translate-y-1/2 text-white">${icon(style.icon).html[0]}</span>
+  `
+  sizeIcon(tag, 12)
+  el.appendChild(tag)
   return el
 }
 
-function buildMarkerElement(facility, onSelectFacility) {
+// A location's pin, with its storage/venue count badge; clicking it selects
+// that location.
+function buildMarkerElement(facility, counts, onSelect) {
   const style = FACILITY_TYPE_STYLES[facility.type] ?? FACILITY_TYPE_STYLES.Venue
-  const interactive = isInteractiveFacility(facility)
-  const el = interactive ? buildPinElement(style) : buildCircleElement(style)
+  const el = buildPinElement(style, counts)
   el.dataset.selectKey = selectKey(facility)
-  if (interactive) {
-    // Our own label, attached to the pin itself (hangs just below the icon)
-    // so the icon and its name can never drift apart. The basemap's own POI
-    // labels are turned off (see applyLabelConfig) - they sit at the
-    // building's centroid while the pin sits at the facility's coordinates
-    // (lifted to rooftop height), which is what left the icon floating far
-    // from its label. Visibility (only when zoomed in) and color (dark by
-    // day, light by night) come from the .facility-label rules in index.css,
-    // driven by data attributes on the map container.
-    const label = document.createElement('span')
-    label.textContent = facility.name
-    label.className = 'facility-label pointer-events-none absolute left-1/2 top-full mt-0.5 w-max max-w-[9rem] -translate-x-1/2 text-center text-[11px] font-semibold leading-tight'
-    el.appendChild(label)
-    el.addEventListener('click', (event) => {
-      // Without this, Mapbox's own click-through-to-map handler fires too and
-      // can close whatever this click was meant to open.
-      event.stopPropagation()
-      onSelectFacility(facility)
-    })
-  }
+  // Our own label, attached to the marker itself (hangs just below it) so
+  // the marker and its name can never drift apart. The basemap's own POI
+  // labels are turned off (see applyLabelConfig). Visibility (only when
+  // zoomed in) and color (dark by day, light by night) come from the
+  // .facility-label rules in index.css, driven by data attributes on the map
+  // container.
+  const label = document.createElement('span')
+  label.textContent = facility.name
+  label.className = 'facility-label pointer-events-none absolute left-1/2 top-full mt-0.5 w-max max-w-[9rem] -translate-x-1/2 text-center text-[11px] font-semibold leading-tight'
+  el.appendChild(label)
+  el.addEventListener('click', (event) => {
+    // Without this, Mapbox's own click-through-to-map handler fires too and
+    // can close whatever this click was meant to open.
+    event.stopPropagation()
+    onSelect(facility)
+  })
   return el
 }
 
@@ -275,10 +456,14 @@ const LABEL_MIN_ZOOM = 17.8
 // just be a green smear, and thousands of extrusions cost frame time.
 const TREE_MIN_ZOOM = 16.5
 
-function applyLightPreset(map) {
-  map.getContainer().dataset.night = String(!isDaytime())
+// `mode` is the viewer's choice from MapThemeToggle: 'auto' follows the
+// clock (isDaytime), 'light'/'dark' pin the map to day/night regardless of
+// the time - e.g. for anyone who prefers the light map even at night.
+function applyLightPreset(map, mode = 'auto') {
+  const day = mode === 'auto' ? isDaytime() : mode === 'light'
+  map.getContainer().dataset.night = String(!day)
   try {
-    map.setConfigProperty('basemap', 'lightPreset', isDaytime() ? 'day' : 'night')
+    map.setConfigProperty('basemap', 'lightPreset', day ? 'day' : 'night')
   } catch {
     // Not a Standard-style map (e.g. a custom Studio style) - no light preset
     // config to set, nothing to do.
@@ -289,9 +474,14 @@ function applyLightPreset(map) {
 // carries its own label instead (see buildMarkerElement) - otherwise every
 // building would show its name twice, once at the pin and once at the
 // basemap's centroid.
+//
+// Mapbox's 3D buildings are switched off too, everywhere: outside the campus
+// stays flat (Standard then draws its flat 2d-building footprints), and the
+// campus's own buildings are drawn in 3D by our campus-buildings layer.
 function applyLabelConfig(map) {
   try {
     map.setConfigProperty('basemap', 'showPointOfInterestLabels', false)
+    map.setConfigProperty('basemap', 'show3dBuildings', false)
   } catch {
     // Not a Standard-style map - nothing to configure.
   }
@@ -317,7 +507,10 @@ function MapCanvas({
   facilities,
   allFacilities,
   placementMode,
+  placementFacilityId,
   onPlacementClick,
+  onCancelPlacement,
+  onMoveItem,
   onEditArea,
   onDeleteArea,
   onEditItem,
@@ -341,6 +534,28 @@ function MapCanvas({
   // this camera sequencing lives in.
   const introPlayedRef = useRef(false)
 
+  // Light/dark map, picked in MapThemeToggle: 'auto' (by the clock), 'light'
+  // or 'dark'. Saved per browser so the choice survives reloads.
+  const [themeMode, setThemeMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem(MAP_THEME_STORAGE_KEY)
+      return MAP_THEME_MODES.includes(saved) ? saved : 'auto'
+    } catch {
+      return 'auto'
+    }
+  })
+  const themeModeRef = useRef(themeMode)
+  themeModeRef.current = themeMode
+  useEffect(() => {
+    try {
+      localStorage.setItem(MAP_THEME_STORAGE_KEY, themeMode)
+    } catch {
+      // private browsing / storage disabled - the choice just won't persist
+    }
+    const map = mapRef.current
+    if (map && mapLoaded) applyLightPreset(map, themeMode)
+  }, [themeMode, mapLoaded])
+
   // Read inside the persistent 'click' listener below (attached once, in the
   // map-lifecycle effect) - refs so that listener always sees the current
   // values instead of whatever they were on first attach.
@@ -348,6 +563,17 @@ function MapCanvas({
   placementModeRef.current = placementMode
   const onPlacementClickRef = useRef(onPlacementClick)
   onPlacementClickRef.current = onPlacementClick
+  // The facility a new storage/venue is being placed on (null when placing a
+  // campus area itself) - its geofence limits where the click may land.
+  const placementFacility =
+    placementFacilityId != null
+      ? allFacilities.find((f) => f.id === placementFacilityId && isInteractiveFacility(f)) ?? null
+      : null
+  const placementFacilityRef = useRef(placementFacility)
+  placementFacilityRef.current = placementFacility
+  // Why the last placement click was refused, shown in the placement banner.
+  const [placementError, setPlacementError] = useState(null)
+  const setPlacementErrorRef = useRef(setPlacementError)
 
   // Selection state lives here, not in the parent - only this component has
   // the actual Mapbox `map` instance needed to fly the camera to a point.
@@ -362,13 +588,94 @@ function MapCanvas({
   const [minimized, setMinimized] = useState(false)
   // Which storage/venue row (if any) is drilled into within the selected
   // area - lifted up from AreaDetailsContent (rather than that component's
-  // own local state) so this component can swap DetailsSidebar's header
-  // between "area" and "item" modes (see the render below). Resets whenever
-  // the selection itself changes, same as it would have on remount before.
+  // own local state) so the map can fly to its spot. Picked from the
+  // sidebar's list.
+  // Resets when a DIFFERENT area gets selected - not when the same area's
+  // data merely refreshes after an edit.
   const [subItem, setSubItem] = useState(null)
+  const selectedAreaKey = selected ? selectKey(selected.data) : null
   useEffect(() => {
     setSubItem(null)
-  }, [selected])
+  }, [selectedAreaKey])
+
+  // Manually repositioning a pin ("Move pin" in the details panel): a
+  // draggable pin stands in for the item's marker; drag it, or click the map
+  // to jump it there, then save. `moving` = { item, lngLat, serverError,
+  // saving } or null. The same rule the backend enforces is checked live:
+  // a location must stay inside its campus boundary, a storage/venue inside
+  // its location's geofence (shown while moving).
+  // Direction of each campus's street grid (see campusGridAngle), by branch
+  // id - every geofence rectangle is lined up with it. A storage/venue uses
+  // its location's campus.
+  const gridAngles = useMemo(() => {
+    const angles = new Map()
+    for (const campus of campuses) {
+      let ring = null
+      try {
+        ring = closeRing(JSON.parse(campus.boundaryJson))
+      } catch {
+        // Malformed boundary - that campus falls back to north-up.
+      }
+      angles.set(campus.id, campusGridAngle(ring))
+    }
+    return angles
+  }, [campuses])
+  const gridAngleFor = (facility) => {
+    const branchId = isInteractiveFacility(facility)
+      ? facility.branchId
+      : allFacilities.find((f) => f.id === facility.facilityId && isInteractiveFacility(f))?.branchId
+    return gridAngles.get(branchId) ?? gridAngles.values().next().value ?? 0
+  }
+  // Read by the placement click handler, which is attached once.
+  const gridAngleForRef = useRef(gridAngleFor)
+  gridAngleForRef.current = gridAngleFor
+
+  const [moving, setMoving] = useState(null)
+  const movingRef = useRef(moving)
+  movingRef.current = moving
+  const movingParent = moving && !isInteractiveFacility(moving.item)
+    ? allFacilities.find((f) => f.id === moving.item.facilityId && isInteractiveFacility(f)) ?? null
+    : null
+  let moveError = null
+  if (moving) {
+    const [lng, lat] = moving.lngLat
+    if (isInteractiveFacility(moving.item)) {
+      const branch = campuses.find((c) => c.id === moving.item.branchId)
+      const rings = campusRings(branch ? [branch] : campuses)
+      if (!rings.some((ring) => ringContains(ring, lng, lat))) moveError = 'Keep the pin inside the campus boundary.'
+    } else if (movingParent && !isWithinFacilityGeofence(movingParent, lng, lat, gridAngleFor(movingParent))) {
+      moveError = `Keep the pin inside the highlighted area of ${movingParent.name} (up to ${FACILITY_GEOFENCE_MARGIN_M} m around it).`
+    }
+  }
+  const startMove = (item) => {
+    if (placementModeRef.current) return
+    setMoving({ item, lngLat: [item.longitude, item.latitude], serverError: null, saving: false })
+    // Out of the way of the map while dragging; the panel comes back after.
+    setMinimized(true)
+  }
+  const saveMove = async () => {
+    if (!moving || moveError) return
+    setMoving((m) => ({ ...m, saving: true, serverError: null }))
+    const result = await onMoveItem(moving.item, moving.lngLat)
+    if (result?.ok) {
+      setMoving(null)
+      setMinimized(false)
+    } else {
+      setMoving((m) => m && { ...m, saving: false, serverError: result?.message || 'Could not save the new position.' })
+    }
+  }
+  const cancelMove = () => {
+    setMoving(null)
+    setMinimized(false)
+  }
+  // Keeps an open item's details fresh after an edit, and closes them if it
+  // was deleted - `subItem` is a snapshot taken when it was picked.
+  useEffect(() => {
+    if (!subItem) return
+    const fresh = allFacilities.find((f) => f.id === subItem.id && f.type === subItem.type)
+    if (fresh !== subItem) setSubItem(fresh ?? null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allFacilities])
 
   // Tells the parent whenever something here becomes selected/deselected -
   // index.jsx uses this to auto-close the filter nav the instant a marker's
@@ -421,7 +728,7 @@ function MapCanvas({
     map.on('zoom', updateLabelVisibility)
     map.on('load', () => {
       updateLabelVisibility()
-      applyLightPreset(map)
+      applyLightPreset(map, themeModeRef.current)
       applyLabelConfig(map)
       setMapLoaded(true)
     })
@@ -440,9 +747,10 @@ function MapCanvas({
 
     // "Realtime" day/night - re-checks periodically so a page left open
     // across the actual day/night boundary updates the light preset live,
-    // not just once at load. 10 minutes is frequent enough to feel real
-    // without constantly touching config properties for no reason.
-    const lightIntervalId = window.setInterval(() => applyLightPreset(map), 10 * 60 * 1000)
+    // not just once at load (only matters in 'auto' - see MapThemeToggle).
+    // 10 minutes is frequent enough to feel real without constantly
+    // touching config properties for no reason.
+    const lightIntervalId = window.setInterval(() => applyLightPreset(map, themeModeRef.current), 10 * 60 * 1000)
 
     // Placement mode (e.g. "click the map to place a new storage area") -
     // this is a plain, layer-less click handler, so it only ever fires for
@@ -454,12 +762,33 @@ function MapCanvas({
     // at that exact point (a real building/POI) so the add-storage/venue/area
     // modal can open with its name pre-filled instead of blank, plus the
     // building's outline + height that a new facility is saved with.
+    //
+    // When placing a storage/venue on a facility: a click on the facility's
+    // 3D building is read at its roof height, so the pin lands exactly where
+    // the roof was clicked (Mapbox's own e.lngLat is the ground BEHIND a tall
+    // building at a tilt); any other click is read on the ground - e.g. in
+    // the yellow geofence band around the building. A click outside the
+    // facility's geofence is refused with a message instead of opening the
+    // form; the backend checks the same rule on save.
     const handlePlacementClick = (e) => {
-      if (placementModeRef.current) {
-        const detectedName = detectPlaceNameAt(map, e.point)
-        const detectedShape = detectBuildingShapeAt(map, e.point, e.lngLat.lng, e.lngLat.lat)
-        onPlacementClickRef.current?.([e.lngLat.lng, e.lngLat.lat], detectedName, detectedShape)
+      // While moving a pin, a map click jumps the stand-in pin there.
+      if (movingRef.current) {
+        setMoving((m) => m && { ...m, lngLat: [e.lngLat.lng, e.lngLat.lat], serverError: null })
+        return
       }
+      if (!placementModeRef.current) return
+      const facility = placementFacilityRef.current
+      const { lng, lat } = facility ? placementPointOnFacility(map, e, facility) : e.lngLat
+      if (facility && !isWithinFacilityGeofence(facility, lng, lat, gridAngleForRef.current(facility))) {
+        setPlacementErrorRef.current(
+          `That spot is outside ${facility.name}. Click inside the highlighted area (up to ${FACILITY_GEOFENCE_MARGIN_M} m around it).`,
+        )
+        return
+      }
+      setPlacementErrorRef.current(null)
+      const detectedName = detectPlaceNameAt(map, e.point)
+      const detectedShape = detectBuildingShapeAt(map, e.point, lng, lat)
+      onPlacementClickRef.current?.([lng, lat], detectedName, detectedShape)
     }
     map.on('click', handlePlacementClick)
 
@@ -551,6 +880,60 @@ function MapCanvas({
     }
   }, [mapLoaded])
 
+  // The campus in 3D, everything else flat: Mapbox's 3D buildings are off
+  // (see applyLabelConfig), and this layer re-draws only the buildings inside
+  // the campus, from Mapbox's own building data and heights. Rebuilt as
+  // building tiles load (at most once per frame); setData is skipped when
+  // nothing changed so panning around doesn't keep re-uploading it.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapLoaded) return
+    const rings = campusRings(campuses)
+    const skipPins = facilities.filter((f) => f.heightOverride).map((f) => [f.longitude, f.latitude])
+    const sourceId = 'campus-buildings'
+
+    const emptyData = { type: 'FeatureCollection', features: [] }
+    if (!map.getSource(sourceId)) {
+      map.addSource(sourceId, { type: 'geojson', data: emptyData })
+      map.addLayer({
+        id: CAMPUS_BUILDINGS_LAYER_ID,
+        type: 'fill-extrusion',
+        source: sourceId,
+        // Same draw position Standard's own 3D buildings use.
+        slot: 'middle',
+        layout: { 'fill-extrusion-edge-radius': 0.4 },
+        paint: CAMPUS_BUILDING_PAINT,
+      })
+    }
+
+    let lastSignature = null
+    let frame = null
+    const rebuild = () => {
+      frame = null
+      const features = rings.length ? campusBuildingFeatures(loadedBasemapBuildings(map), rings, skipPins) : []
+      const signature = features.map((f) => `${f.properties.height}:${f.geometry.coordinates[0]?.[0]}`).join('|')
+      if (signature === lastSignature) return
+      lastSignature = signature
+      map.getSource(sourceId)?.setData({ type: 'FeatureCollection', features })
+    }
+    const scheduleRebuild = () => {
+      if (frame == null) frame = window.requestAnimationFrame(rebuild)
+    }
+    const onSourceData = (e) => {
+      if (e.sourceId === BASEMAP_BUILDING_SOURCE && e.tile) scheduleRebuild()
+    }
+    rebuild()
+    map.on('sourcedata', onSourceData)
+    // Backstop for anything the tile event missed (and the only path if the
+    // tile-level read in loadedBasemapBuildings is ever unavailable).
+    map.on('idle', scheduleRebuild)
+    return () => {
+      if (frame != null) window.cancelAnimationFrame(frame)
+      map.off('sourcedata', onSourceData)
+      map.off('idle', scheduleRebuild)
+    }
+  }, [mapLoaded, campuses, facilities])
+
   // Crosshair while placement mode is active, so it's visually obvious the
   // next click means something different than usual.
   useEffect(() => {
@@ -558,6 +941,113 @@ function MapCanvas({
     if (!map || !mapLoaded) return
     map.getCanvas().style.cursor = placementMode ? 'crosshair' : ''
   }, [mapLoaded, placementMode])
+
+  // Shows one geofence on the ground, under the 3D buildings: the selected
+  // location's (or, while placing/moving a storage/venue, that of the
+  // location it belongs to) - its rectangle, in yellow. Storage and venues
+  // have no geofence of their own: they share their location's, so opening
+  // one keeps showing the location's.
+  const geofenceFacility = placementFacility ?? movingParent ?? selected?.data ?? null
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapLoaded) return
+    if (!placementFacility) setPlacementError(null)
+
+    const sourceId = 'placement-geofence'
+    let feature = null
+    if (geofenceFacility) {
+      const ring = facilityGeofenceRing(geofenceFacility, gridAngleFor(geofenceFacility))
+      if (ring) {
+        feature = {
+          type: 'Feature',
+          properties: { fill: '#fccb35', edge: '#e0a800' },
+          geometry: { type: 'Polygon', coordinates: [ring] },
+        }
+      }
+    }
+    const data = { type: 'FeatureCollection', features: feature ? [feature] : [] }
+    if (map.getSource(sourceId)) {
+      map.getSource(sourceId).setData(data)
+    } else {
+      map.addSource(sourceId, { type: 'geojson', data })
+      // Ground layers, under the campus's 3D buildings (see groundLayerBefore).
+      map.addLayer(
+        {
+          id: GEOFENCE_FILL_LAYER_ID,
+          type: 'fill',
+          source: sourceId,
+          slot: 'middle',
+          paint: { 'fill-color': ['get', 'fill'], 'fill-opacity': 0.35 },
+        },
+        groundLayerBefore(map),
+      )
+      map.addLayer(
+        {
+          id: GEOFENCE_EDGE_LAYER_ID,
+          type: 'line',
+          source: sourceId,
+          slot: 'middle',
+          paint: { 'line-color': ['get', 'edge'], 'line-width': 2.5 },
+        },
+        groundLayerBefore(map),
+      )
+    }
+    // Colors come from each feature - re-applied so layers created by older
+    // code (kept alive across a dev hot reload) pick that up too.
+    map.setPaintProperty(GEOFENCE_FILL_LAYER_ID, 'fill-color', ['get', 'fill'])
+    map.setPaintProperty(GEOFENCE_EDGE_LAYER_ID, 'line-color', ['get', 'edge'])
+  }, [mapLoaded, placementFacility, geofenceFacility])
+
+  // The draggable stand-in pin while moving: same look as the item's own
+  // marker, but on the ground (Mapbox drags markers along the ground, so a
+  // pin lifted to a roof would jump under the cursor). Once saved, a rooftop
+  // item is shown on its roof again, right above the saved spot.
+  const moveMarkerRef = useRef(null)
+  const movingKey = moving ? selectKey(moving.item) : null
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapLoaded || !movingRef.current) return
+    const { item, lngLat } = movingRef.current
+    const style = FACILITY_TYPE_STYLES[item.type] ?? FACILITY_TYPE_STYLES.Venue
+    const el = isInteractiveFacility(item) ? buildPinElement(style, { storage: 0, venue: 0 }) : buildTagElement(style)
+    el.dataset.active = 'true'
+    el.classList.replace('cursor-pointer', 'cursor-grab')
+    const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom', draggable: true }).setLngLat(lngLat).addTo(map)
+    const onDrag = () => {
+      const { lng, lat } = marker.getLngLat()
+      setMoving((m) => m && { ...m, lngLat: [lng, lat], serverError: null })
+    }
+    marker.on('drag', onDrag)
+    moveMarkerRef.current = marker
+    return () => {
+      marker.remove()
+      moveMarkerRef.current = null
+    }
+  }, [mapLoaded, movingKey])
+  // A map click moves the stand-in pin too (see handlePlacementClick).
+  useEffect(() => {
+    if (moving && moveMarkerRef.current) moveMarkerRef.current.setLngLat(moving.lngLat)
+  }, [moving])
+
+  // Opening a storage/venue (from the sidebar's list or its tag) glides the
+  // camera to it. A tag on a tall building sits at the roof, so the camera
+  // backs off with height to keep it in view - same rule as flyToAndSelect.
+  const subItemKey = subItem ? selectKey(subItem) : null
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapLoaded || !subItem) return
+    const zoomPullback = Math.min(1, markerAltitude(subItem) / 60)
+    map.easeTo({
+      center: [subItem.longitude, subItem.latitude],
+      zoom: Math.max(map.getMinZoom(), Math.max(map.getZoom(), 19.5) - zoomPullback),
+      pitch: 60,
+      duration: 1400,
+      essential: true,
+    })
+    // Keyed on the item's identity, so refreshed data after an edit doesn't
+    // re-fly the camera.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapLoaded, subItemKey])
 
   // Boundary layer(s) + markers - runs once the map has finished its own
   // internal load AND the campus/facility data has arrived from the API,
@@ -578,7 +1068,7 @@ function MapCanvas({
     // finishes. Gating placement mode here means clicking an existing marker
     // while placing a new storage point doesn't also pop open its details.
     function flyToAndSelect(data, lngLat, altitude = 0) {
-      if (placementModeRef.current) return
+      if (placementModeRef.current || movingRef.current) return
       // Selects immediately instead of waiting for the flyTo's 'moveend' -
       // that previous gating made the sidebar's appearance depend entirely on
       // how far the camera had to travel: near-instant for a marker already
@@ -668,19 +1158,24 @@ function MapCanvas({
 
       // One source, two layers referencing it - the core Mapbox GL mental
       // model: the source just holds data, layers decide how to paint it.
+      // Slot 'middle' keeps both on the ground under the 3D buildings -
+      // without a slot they're drawn over the finished scene and tint
+      // whatever building happens to overlap the campus on screen.
       map.addSource(sourceId, { type: 'geojson', data: geojson })
       map.addLayer({
         id: `${sourceId}-fill`,
         type: 'fill',
         source: sourceId,
+        slot: 'middle',
         paint: { 'fill-color': '#fccb35', 'fill-opacity': 0.15 },
-      })
+      }, campusGroundLayerBefore(map))
       map.addLayer({
         id: `${sourceId}-line`,
         type: 'line',
         source: sourceId,
+        slot: 'middle',
         paint: { 'line-color': '#fccb35', 'line-width': 2 },
-      })
+      }, campusGroundLayerBefore(map))
 
       // Deliberately not interactive - only facility/venue/storage markers
       // are clickable for viewing details. The campus boundary click-to-view
@@ -689,16 +1184,13 @@ function MapCanvas({
       // while you're just navigating the map or reaching for a marker.
     })
 
-    // Dims everything outside the campus (surrounding city buildings, roads,
-    // labels) so the campus itself reads as the visual focus instead of
-    // blending into the dense city around it - see buildCampusMaskFeature.
-    // `slot: 'land'` is Standard style's ground-level compositing slot (sits
-    // on the terrain, below buildings/labels) - `slot: 'top'` was tried
-    // first but composites ABOVE the whole 3D scene instead of on the
-    // ground, which reads as a flat gray plane floating in front of
-    // everything at a steep pitch instead of tinting the ground itself. A
-    // non-Standard style just ignores an unknown slot and stacks it in
-    // insertion order like any other layer.
+    // Darkens the flat area outside the campus (roads, blocks, building
+    // footprints) so the campus reads as the focus - see
+    // buildCampusMaskFeature. Slot 'middle' draws it under the 3D
+    // buildings: with no valid slot (this used to say 'land', which Standard
+    // doesn't have) it was drawn over the finished 3D scene as a flat sheet,
+    // graying any campus building that stood in front of outside ground on
+    // screen - e.g. the upper floors of Frassati.
     const maskSourceId = 'campus-mask'
     const maskGeojson = buildCampusMaskFeature(campuses)
     if (map.getSource(maskSourceId)) {
@@ -709,9 +1201,9 @@ function MapCanvas({
         id: `${maskSourceId}-fill`,
         type: 'fill',
         source: maskSourceId,
-        slot: 'land',
-        paint: { 'fill-color': '#4b4b4b', 'fill-opacity': 0.55 },
-      })
+        slot: 'middle',
+        paint: { 'fill-color': OUTSIDE_CAMPUS_COLOR, 'fill-opacity': 0.55 },
+      }, campusGroundLayerBefore(map))
     }
 
     // Intro sequence, plays exactly once per page load (guarded by
@@ -815,34 +1307,36 @@ function MapCanvas({
       map.getSource(buildingsSourceId).setData(buildingsGeojson)
       // Re-applied so a layer created by older code (e.g. kept alive across
       // a dev hot reload) can't keep painting a stale look.
-      Object.entries(OVERRIDE_BLOCK_PAINT).forEach(([prop, value]) => map.setPaintProperty(OVERRIDE_LAYER_ID, prop, value))
+      Object.entries(CAMPUS_BUILDING_PAINT).forEach(([prop, value]) => map.setPaintProperty(OVERRIDE_LAYER_ID, prop, value))
     } else {
       map.addSource(buildingsSourceId, { type: 'geojson', data: buildingsGeojson })
       map.addLayer({
         id: OVERRIDE_LAYER_ID,
         type: 'fill-extrusion',
         source: buildingsSourceId,
-        // Same draw position as Standard's own 3D buildings. Without a slot
-        // the block is drawn after everything else - after the campus
-        // boundary's translucent yellow fill, which tints every Mapbox
-        // building but would miss this one, leaving it visibly bluer.
+        // Same draw position as Standard's own 3D buildings, so it's lit and
+        // layered exactly like its neighbors.
         slot: 'middle',
         layout: { 'fill-extrusion-edge-radius': 0.4 },
-        paint: OVERRIDE_BLOCK_PAINT,
+        paint: CAMPUS_BUILDING_PAINT,
       })
     }
 
     // Markers are cleared and rebuilt on every change rather than diffed -
     // simpler, and fine at this scale. Altitude is the row's saved height, so
-    // a rebuild always puts each pin back at the exact same spot.
+    // a rebuild always puts each pin back at the exact same spot. Only
+    // locations get markers; their storage/venue counts (from the UNFILTERED
+    // list) ride on each pin's badge.
+    const embeddedCounts = countEmbedded(allFacilities)
     markersRef.current.forEach((marker) => marker.remove())
-    markersRef.current = facilities.map((facility) =>
+    markersRef.current = facilities.filter(hasMarker).map((facility) =>
       new mapboxgl.Marker({
-        element: buildMarkerElement(facility, (f) => flyToAndSelect(f, [f.longitude, f.latitude], markerAltitude(f))),
+        element: buildMarkerElement(facility, embeddedCounts.get(facility.id) ?? { storage: 0, venue: 0 }, (f) =>
+          flyToAndSelect(f, [f.longitude, f.latitude], markerAltitude(f)),
+        ),
         altitude: markerAltitude(facility),
-        // A pin's tip is its location, so it sits on the point rather than
-        // being centered over it the way the plain circles are.
-        anchor: isInteractiveFacility(facility) ? 'bottom' : 'center',
+        // The pin's tip is its location.
+        anchor: 'bottom',
       })
         .setLngLat([facility.longitude, facility.latitude])
         .addTo(map),
@@ -885,18 +1379,20 @@ function MapCanvas({
       map.off('render', scheduleDeclutter)
       if (declutterFrame != null) window.cancelAnimationFrame(declutterFrame)
     }
-  }, [mapLoaded, campuses, facilities])
+  }, [mapLoaded, campuses, facilities, allFacilities])
 
   // Highlights the selected area's pin (the .map-pin[data-active] rules in
-  // index.css). Declared after the markers effect so that, when both re-run
-  // together, it marks the freshly rebuilt elements rather than the old ones.
+  // index.css), and hides the pin being moved - its draggable stand-in
+  // replaces it. Declared after the markers effect so that, when both re-run
+  // together, it updates the freshly rebuilt elements rather than the old ones.
   useEffect(() => {
     const activeKey = selected ? selectKey(selected.data) : null
     markersRef.current.forEach((marker) => {
       const el = marker.getElement()
       el.dataset.active = String(el.dataset.selectKey === activeKey)
+      el.style.display = el.dataset.selectKey === movingKey ? 'none' : ''
     })
-  }, [selected, mapLoaded, campuses, facilities])
+  }, [selected, movingKey, mapLoaded, campuses, facilities, allFacilities])
 
   const handleCloseSelection = () => {
     setSelected(null)
@@ -958,6 +1454,67 @@ function MapCanvas({
         <MapLoadingOverlay label="Loading campus map…" />
       </div>
       <MapLegend />
+      {mapLoaded && <MapThemeToggle mode={themeMode} onChange={setThemeMode} />}
+      {placementMode && placementFacility && (
+        // Placement instructions for a new storage/venue - left of the
+        // right-docked details sidebar, which stays open during placement,
+        // and stacked above it for narrow screens where the two overlap.
+        <div className="pointer-events-none absolute left-1/2 top-4 z-30 w-[min(26rem,calc(100%-2rem))] -translate-x-1/2 sm:left-[calc(50%-10rem)]">
+          <div className="pointer-events-auto rounded-xl bg-white px-4 py-3 shadow-lg">
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-sm text-gray-700">
+                Click inside the highlighted area of <span className="font-semibold text-gray-900">{placementFacility.name}</span> to
+                place the new {placementMode === 'venue' ? 'venue' : 'storage area'}.
+              </p>
+              <button
+                type="button"
+                onClick={onCancelPlacement}
+                className="shrink-0 cursor-pointer rounded-md px-2 py-1 text-xs font-semibold text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-700"
+              >
+                Cancel
+              </button>
+            </div>
+            {placementError && (
+              <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">{placementError}</p>
+            )}
+          </div>
+        </div>
+      )}
+      {moving && (
+        <div className="pointer-events-none absolute left-1/2 top-4 z-30 w-[min(26rem,calc(100%-2rem))] -translate-x-1/2">
+          <div className="pointer-events-auto rounded-xl bg-white px-4 py-3 shadow-lg">
+            <p className="text-sm text-gray-700">
+              Drag the pin, or click the map, to move{' '}
+              <span className="font-semibold text-gray-900">{moving.item.name}</span>.
+            </p>
+            <p className="mt-1 text-xs text-gray-400">
+              {moving.lngLat[1].toFixed(6)}, {moving.lngLat[0].toFixed(6)}
+            </p>
+            {(moveError || moving.serverError) && (
+              <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+                {moveError || moving.serverError}
+              </p>
+            )}
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={cancelMove}
+                className="flex flex-1 cursor-pointer items-center justify-center rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition-colors duration-150 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveMove}
+                disabled={!!moveError || moving.saving}
+                className="flex flex-1 cursor-pointer items-center justify-center rounded-lg bg-[#fccb35] px-3 py-2 text-xs font-bold text-gray-900 shadow-sm transition-colors duration-150 hover:bg-[#e6b82f] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {moving.saving ? 'Saving…' : 'Save position'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {selected && (
         <DetailsSidebar
           // Keyed by the selected item so switching straight from one
@@ -987,6 +1544,7 @@ function MapCanvas({
             onEditItem={onEditItem}
             onDeleteItem={onDeleteItem}
             onAddItem={(kind) => onAddEmbeddedItem(kind, selected.data.id)}
+            onMovePin={startMove}
           />
         </DetailsSidebar>
       )}

@@ -263,7 +263,23 @@ function CampusMapContent() {
         campuses={campuses}
         facilities={visibleFacilities}
         allFacilities={facilities}
-        placementMode={!!placingKind}
+        // The kind being placed ('area' | 'storage' | 'venue') or null.
+        placementMode={placingKind}
+        // Storage/venue placement is locked to one facility (the sidebar's
+        // "+ Add" buttons) - its geofence limits where the pin may go.
+        placementFacilityId={placingKind && placingKind !== 'area' ? placingPresetAreaId : null}
+        // "Move pin" save: just the new coordinates, through the same PATCH
+        // an edit uses - the backend re-checks the boundary/geofence.
+        onMoveItem={(item, [lng, lat]) =>
+          patchItem(item.type === 'Storage' ? 'storage' : item.type === 'Venue' ? 'venue' : 'area', item.id, {
+            latitude: lat,
+            longitude: lng,
+          })
+        }
+        onCancelPlacement={() => {
+          setPlacingKind(null)
+          setPlacingPresetAreaId(null)
+        }}
         onPlacementClick={(lngLat, detectedName, detectedShape) => {
           setPendingPlacement({ kind: placingKind, lngLat, presetCampusAreaId: placingPresetAreaId, detectedName, detectedShape })
           setPlacingKind(null)

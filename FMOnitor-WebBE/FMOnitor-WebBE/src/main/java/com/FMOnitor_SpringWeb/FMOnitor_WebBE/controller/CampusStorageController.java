@@ -37,7 +37,7 @@ public class CampusStorageController {
 
     // No height/footprint here - a storage room always takes its facility's
     // (see copyShapeFrom), so there's nothing for the client to send.
-    public record CampusStorageRequest(String name, Long facilityId, Double latitude, Double longitude,
+    public record CampusStorageRequest(String name, String description, Long facilityId, Double latitude, Double longitude,
                                        String photoUrl) {
     }
 
@@ -56,12 +56,13 @@ public class CampusStorageController {
         if (request.latitude() == null || request.longitude() == null) {
             return badRequest("latitude and longitude are required");
         }
-        if (!geofenceService.isWithinBoundary(request.latitude(), request.longitude(), facility.getBranchId())) {
-            return badRequest("Coordinates fall outside the campus boundary. Place the pin within official campus boundaries.");
+        if (!geofenceService.isWithinFacility(request.latitude(), request.longitude(), facility)) {
+            return badRequest(outsideFacilityMessage(facility));
         }
 
         tbl_CampusStorages storage = new tbl_CampusStorages();
         storage.setName(request.name());
+        storage.setDescription(request.description());
         storage.setFacilityId(request.facilityId());
         storage.setLatitude(request.latitude());
         storage.setLongitude(request.longitude());
@@ -88,18 +89,24 @@ public class CampusStorageController {
         if (facility == null) {
             return badRequest("No campus facility exists with that facilityId");
         }
+        // Whichever changed - the pin or the parent - the pin must end up on
+        // the (possibly new) parent facility.
+        boolean moving = request.latitude() != null && request.longitude() != null;
+        double lat = moving ? request.latitude() : storage.getLatitude();
+        double lng = moving ? request.longitude() : storage.getLongitude();
+        if ((moving || !facilityId.equals(storage.getFacilityId()))
+                && !geofenceService.isWithinFacility(lat, lng, facility)) {
+            return badRequest(outsideFacilityMessage(facility));
+        }
         storage.setFacilityId(facilityId);
         copyShapeFrom(facility, storage);
-
-        if (request.latitude() != null && request.longitude() != null) {
-            if (!geofenceService.isWithinBoundary(request.latitude(), request.longitude(), facility.getBranchId())) {
-                return badRequest("Coordinates fall outside the campus boundary. Place the pin within official campus boundaries.");
-            }
-            storage.setLatitude(request.latitude());
-            storage.setLongitude(request.longitude());
-        }
+        storage.setLatitude(lat);
+        storage.setLongitude(lng);
         if (request.name() != null) {
             storage.setName(request.name());
+        }
+        if (request.description() != null) {
+            storage.setDescription(request.description());
         }
         if (request.photoUrl() != null) {
             storage.setPhotoUrl(request.photoUrl());
@@ -115,6 +122,10 @@ public class CampusStorageController {
         }
         campusStoragesRepo.deleteById(id);
         return ResponseEntity.noContent().build();
+    }
+
+    private String outsideFacilityMessage(tbl_CampusFacilities facility) {
+        return "Place the pin inside the highlighted area of " + facility.getName() + ".";
     }
 
     private void copyShapeFrom(tbl_CampusFacilities facility, tbl_CampusStorages storage) {

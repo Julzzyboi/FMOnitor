@@ -59,3 +59,18 @@ const MOCK_ITEM_COUNTS = [8, 5, 6, 5, 4, 5, 6, 4, 6, 4, 4, 4, 2]
 export function mockItemCount(id) {
   return MOCK_ITEM_COUNTS[id % MOCK_ITEM_COUNTS.length]
 }
+
+// Same idea for venues: no events backend exists yet, so each venue shows a
+// fixed stub from this sequence (stable per venue across reloads) until a
+// real events/scheduling endpoint replaces it. `active` is never more than
+// `scheduled`.
+const MOCK_EVENT_COUNTS = [
+  { scheduled: 3, active: 1 },
+  { scheduled: 5, active: 0 },
+  { scheduled: 2, active: 1 },
+  { scheduled: 4, active: 2 },
+  { scheduled: 1, active: 0 },
+]
+export function mockEventCounts(id) {
+  return MOCK_EVENT_COUNTS[id % MOCK_EVENT_COUNTS.length]
+}

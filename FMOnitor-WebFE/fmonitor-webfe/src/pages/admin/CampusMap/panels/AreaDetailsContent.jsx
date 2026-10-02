@@ -8,11 +8,47 @@ import {
   faBoxesStacked,
   faLandmark,
   faPen,
+  faUpDownLeftRight,
   faTrash,
   faPlus,
   faBoxOpen,
 } from '@fortawesome/free-solid-svg-icons'
-import { CAMPUS_AREA_TYPES, mockItemCount } from '../facilityTypes'
+import { CAMPUS_AREA_TYPES, FACILITY_TYPE_STYLES, mockEventCounts, mockItemCount } from '../facilityTypes'
+
+// What each kind of place shows under its description:
+//   location -> how many storage areas and venues it holds
+//   storage  -> total inventories kept there
+//   venue    -> scheduled and currently active events
+// Inventory and events have no backend yet - those numbers are the stubs
+// from facilityTypes.js (mockItemCount / mockEventCounts) until they do.
+function detailStats(item, { storageCount, venueCount } = {}) {
+  if (item.type === 'Storage') {
+    return [{ label: 'Total Inventories', value: mockItemCount(item.id) }]
+  }
+  if (item.type === 'Venue') {
+    const events = mockEventCounts(item.id)
+    return [
+      { label: 'Scheduled Events', value: events.scheduled },
+      { label: 'Active Events', value: events.active },
+    ]
+  }
+  return [
+    { label: 'Storage Areas', value: storageCount },
+    { label: 'Venues', value: venueCount },
+  ]
+}
+
+function ViewInventoryLink() {
+  return (
+    <Link
+      to="/inventory"
+      className="mt-5 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[#fccb35] py-2.5 text-sm font-bold text-gray-900 shadow-sm transition-colors duration-150 hover:bg-[#e6b82f]"
+    >
+      <FontAwesomeIcon icon={faBoxOpen} className="h-3.5 w-3.5" />
+      View Inventory
+    </Link>
+  )
+}
 
 function DetailRow({ label, value }) {
   return (
@@ -23,12 +59,11 @@ function DetailRow({ label, value }) {
   )
 }
 
-// One "Location Details" layout for whatever's currently being viewed -
-// the area itself, or a storage/venue row drilled into from it - matching
-// the same reference design for both instead of two different panel styles.
-// `onEdit`/`onDelete` act on whichever of those two `item` actually is.
-function LocationDetailsBody({ item, description, onEdit, onDelete, deleteError }) {
-  const available = mockItemCount(item.id)
+// One details layout for whatever's currently being viewed - the location
+// itself, or a storage/venue drilled into from it: picture, name,
+// description, then that kind's own counts (`stats`, see detailStats) and an
+// optional call to action. `onEdit`/`onDelete` act on whichever `item` is.
+function LocationDetailsBody({ item, description, stats, action, editLabel, onEdit, onMove, onDelete, deleteError }) {
   return (
     <div>
       <div className="-mx-5 -mt-1 mb-4 flex h-40 w-[calc(100%+2.5rem)] items-center justify-center overflow-hidden bg-gray-100">
@@ -44,20 +79,13 @@ function LocationDetailsBody({ item, description, onEdit, onDelete, deleteError 
       <p className="mt-4 text-xs font-bold uppercase tracking-wide text-gray-400">Description</p>
       <p className="mt-1 text-sm text-gray-500">{description}</p>
 
-      {/* No inventory backend yet - see mockItemCount in facilityTypes.js. */}
       <div className="mt-4">
-        <DetailRow label="Items Available" value={available} />
-        <DetailRow label="Items Not Available" value={0} />
-        <DetailRow label="Total Items" value={available} />
+        {stats.map((stat) => (
+          <DetailRow key={stat.label} label={stat.label} value={stat.value} />
+        ))}
       </div>
 
-      <Link
-        to="/inventory"
-        className="mt-5 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[#fccb35] py-2.5 text-sm font-bold text-gray-900 shadow-sm transition-colors duration-150 hover:bg-[#e6b82f]"
-      >
-        <FontAwesomeIcon icon={faBoxOpen} className="h-3.5 w-3.5" />
-        View Inventory
-      </Link>
+      {action}
 
       {deleteError && (
         <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">{deleteError}</p>
@@ -70,7 +98,18 @@ function LocationDetailsBody({ item, description, onEdit, onDelete, deleteError 
           className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2.5 text-xs font-bold uppercase tracking-wide text-gray-600 transition-colors duration-150 hover:bg-gray-50"
         >
           <FontAwesomeIcon icon={faPen} className="h-3 w-3" />
-          Edit Location
+          {editLabel}
+        </button>
+        {/* Starts dragging this item's pin to a new spot on the map (see
+            MapCanvas's `moving` state). */}
+        <button
+          type="button"
+          onClick={onMove}
+          aria-label="Move pin"
+          title="Move pin"
+          className="flex w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors duration-150 hover:bg-gray-50"
+        >
+          <FontAwesomeIcon icon={faUpDownLeftRight} className="h-3.5 w-3.5" />
         </button>
         <button
           type="button"
@@ -116,6 +155,7 @@ function AreaDetailsContent({
   onEditItem,
   onDeleteItem,
   onAddItem,
+  onMovePin,
 }) {
   const [activeTab, setActiveTab] = useState('Storage')
   const [deleteError, setDeleteError] = useState(null)
@@ -162,8 +202,12 @@ function AreaDetailsContent({
 
         <LocationDetailsBody
           item={subItem}
-          description={`${subItem.type} area located within ${area.name}.`}
+          description={subItem.description || `${subItem.type === 'Venue' ? 'Venue' : 'Storage area'} inside ${area.name}.`}
+          stats={detailStats(subItem)}
+          action={subItem.type === 'Storage' ? <ViewInventoryLink /> : null}
+          editLabel={subItem.type === 'Venue' ? 'Edit Venue' : 'Edit Storage'}
           onEdit={() => onEditItem(subItem)}
+          onMove={() => onMovePin(subItem)}
           onDelete={handleDeleteItem}
           deleteError={deleteError}
         />
@@ -176,7 +220,11 @@ function AreaDetailsContent({
       <LocationDetailsBody
         item={area}
         description={area.description || `${area.type} on campus.`}
+        stats={detailStats(area, { storageCount: storageItems.length, venueCount: venueItems.length })}
+        action={null}
+        editLabel="Edit Location"
         onEdit={() => onEditArea(area)}
+        onMove={() => onMovePin(area)}
         onDelete={handleDeleteArea}
         deleteError={deleteError}
       />
@@ -216,17 +264,29 @@ function AreaDetailsContent({
                 No {activeTab.toLowerCase()} areas embedded here yet.
               </p>
             )}
-            {items.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onSubItemChange(item)}
-                className="flex cursor-pointer items-center justify-between rounded-lg px-2 py-2 text-left text-sm text-gray-700 transition-colors duration-150 hover:bg-gray-50"
-              >
-                {item.name}
-                <FontAwesomeIcon icon={faChevronRight} className="h-3 w-3 text-gray-300" />
-              </button>
-            ))}
+            {/* Picking one opens its details and glides the map to its spot
+                (see MapCanvas's subItem effects). */}
+            {items.map((item) => {
+              const style = FACILITY_TYPE_STYLES[item.type]
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onSubItemChange(item)}
+                  className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm text-gray-700 transition-colors duration-150 hover:bg-gray-50"
+                >
+                  {/* Same color and icon as the item's tag on the map. */}
+                  <span
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm"
+                    style={{ backgroundColor: style.color }}
+                  >
+                    <FontAwesomeIcon icon={style.icon} className="h-3 w-3" />
+                  </span>
+                  <span className="flex-1 truncate">{item.name}</span>
+                  <FontAwesomeIcon icon={faChevronRight} className="h-3 w-3 shrink-0 text-gray-300" />
+                </button>
+              )
+            })}
           </div>
 
           <button

@@ -39,6 +39,9 @@ public class tbl_CampusStorages {
     @Column(name = "campus_storage_name", nullable = false)
     private String name;
 
+    @Column(name = "campus_storage_description", columnDefinition = "TEXT")
+    private String description;
+
     @Column(name = "campus_facility_id", nullable = false)
     private Long facilityId;
 

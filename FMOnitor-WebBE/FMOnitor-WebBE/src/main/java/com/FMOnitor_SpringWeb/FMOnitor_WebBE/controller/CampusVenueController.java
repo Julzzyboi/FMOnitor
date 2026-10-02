@@ -37,7 +37,7 @@ public class CampusVenueController {
 
     // No height/footprint here - a venue always takes its facility's (see
     // copyShapeFrom), so there's nothing for the client to send.
-    public record CampusVenueRequest(String name, Long facilityId, Double latitude, Double longitude,
+    public record CampusVenueRequest(String name, String description, Long facilityId, Double latitude, Double longitude,
                                      String photoUrl) {
     }
 
@@ -56,12 +56,13 @@ public class CampusVenueController {
         if (request.latitude() == null || request.longitude() == null) {
             return badRequest("latitude and longitude are required");
         }
-        if (!geofenceService.isWithinBoundary(request.latitude(), request.longitude(), facility.getBranchId())) {
-            return badRequest("Coordinates fall outside the campus boundary. Place the pin within official campus boundaries.");
+        if (!geofenceService.isWithinFacility(request.latitude(), request.longitude(), facility)) {
+            return badRequest(outsideFacilityMessage(facility));
         }
 
         tbl_CampusVenues venue = new tbl_CampusVenues();
         venue.setName(request.name());
+        venue.setDescription(request.description());
         venue.setFacilityId(request.facilityId());
         venue.setLatitude(request.latitude());
         venue.setLongitude(request.longitude());
@@ -88,18 +89,24 @@ public class CampusVenueController {
         if (facility == null) {
             return badRequest("No campus facility exists with that facilityId");
         }
+        // Whichever changed - the pin or the parent - the pin must end up on
+        // the (possibly new) parent facility.
+        boolean moving = request.latitude() != null && request.longitude() != null;
+        double lat = moving ? request.latitude() : venue.getLatitude();
+        double lng = moving ? request.longitude() : venue.getLongitude();
+        if ((moving || !facilityId.equals(venue.getFacilityId()))
+                && !geofenceService.isWithinFacility(lat, lng, facility)) {
+            return badRequest(outsideFacilityMessage(facility));
+        }
         venue.setFacilityId(facilityId);
         copyShapeFrom(facility, venue);
-
-        if (request.latitude() != null && request.longitude() != null) {
-            if (!geofenceService.isWithinBoundary(request.latitude(), request.longitude(), facility.getBranchId())) {
-                return badRequest("Coordinates fall outside the campus boundary. Place the pin within official campus boundaries.");
-            }
-            venue.setLatitude(request.latitude());
-            venue.setLongitude(request.longitude());
-        }
+        venue.setLatitude(lat);
+        venue.setLongitude(lng);
         if (request.name() != null) {
             venue.setName(request.name());
+        }
+        if (request.description() != null) {
+            venue.setDescription(request.description());
         }
         if (request.photoUrl() != null) {
             venue.setPhotoUrl(request.photoUrl());
@@ -115,6 +122,10 @@ public class CampusVenueController {
         }
         campusVenuesRepo.deleteById(id);
         return ResponseEntity.noContent().build();
+    }
+
+    private String outsideFacilityMessage(tbl_CampusFacilities facility) {
+        return "Place the pin inside the highlighted area of " + facility.getName() + ".";
     }
 
     private void copyShapeFrom(tbl_CampusFacilities facility, tbl_CampusVenues venue) {

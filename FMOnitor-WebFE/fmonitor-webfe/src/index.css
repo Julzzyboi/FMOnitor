@@ -130,14 +130,24 @@ body {
 .map-pin:hover .map-pin-body {
   animation: pin-shake 0.45s ease-in-out;
 }
-.map-pin-body path {
+/* Only the marker's own outline (.map-pin-shape) changes color - not the
+   icon's paths, which live inside the same body. */
+.map-pin-shape {
   transition: fill 150ms ease-out;
 }
 .map-pin[data-active='true'] .map-pin-body {
   scale: 1.15;
 }
-.map-pin[data-active='true'] .map-pin-body path {
+.map-pin[data-active='true'] .map-pin-shape {
   fill: #fccb35;
+}
+/* Storage/venue tags carry a white icon on their color - on the active yellow it
+   would vanish, so it turns dark instead. */
+.map-pin--tag .map-pin-icon {
+  transition: color 150ms ease-out;
+}
+.map-pin--tag[data-active='true'] .map-pin-icon {
+  color: #1f2937;
 }
 @media (prefers-reduced-motion: reduce) {
   .map-pin:hover .map-pin-body {
