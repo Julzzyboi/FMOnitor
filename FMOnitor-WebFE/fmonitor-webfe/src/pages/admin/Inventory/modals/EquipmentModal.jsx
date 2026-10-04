@@ -2,7 +2,13 @@ import { useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faXmark } from '@fortawesome/free-solid-svg-icons'
 import PhotoFileInput from '../../../../components/common/PhotoFileInput'
-import { STORAGE_AREAS, CONDITIONS, AVAILABILITY_OPTIONS } from '../inventoryData'
+import {
+  STORAGE_AREAS,
+  BORROWABLE_STORAGE_AREAS,
+  NON_BORROWABLE_STORAGE_AREAS,
+  CONDITIONS,
+  AVAILABILITY_OPTIONS,
+} from '../inventoryData'
 import { validateEquipment } from '../equipmentValidation' 
 
 //para mashow ung error messages -yuji
@@ -17,9 +23,10 @@ const inputClass = (hasError) =>
     return <p className ="text-xs font-medium text-red-600">{message}</p>
   }
 
+
 // Add mode (no `item`) vs edit mode (`item` passed in) - same form either
 // way, same as AddStorageModal's own isEdit convention elsewhere in this app.
-// No delete action here anymore - removed at the user's request.
+// Delete lives on EquipmentDetailsModal instead, which opens this for edits.
 function EquipmentModal({ item, onCancel, onSubmit }) {
   const isEdit = !!item
   const [name, setName] = useState(item?.name ?? '')
@@ -49,7 +56,7 @@ const handleSubmit = (e) => {
 }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-16 lg:py-20">
       <div onClick={onCancel} aria-hidden="true" className="absolute inset-0 bg-black/50" />
 
       {/* max-h-[85vh] + a scrollable middle band (not the whole form) - the
@@ -61,7 +68,8 @@ const handleSubmit = (e) => {
       <form
         onSubmit={handleSubmit}
         noValidate
-        className="relative flex max-h-[85vh] w-full max-w-sm animate-[fade-in-up_0.25s_ease-out_forwards] flex-col overflow-hidden rounded-2xl bg-white opacity-0 shadow-2xl"
+        className="relative flex max-h-full w-full max-w-sm animate-[fade-in-up_0.25s_ease-out_forwards] flex-col overflow-hidden rounded-2xl bg-white opacity-0 shadow-2xl"
+
       >
         <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4">
           <h3 className="text-base font-bold text-gray-900">{isEdit ? 'Edit Equipment' : 'Add New Equipment'}</h3>
@@ -104,11 +112,20 @@ const handleSubmit = (e) => {
                 onChange={(e) => setLocation(e.target.value)}
                 className="rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm text-gray-900 focus:border-[#fccb35] focus:outline-none focus:ring-2 focus:ring-[#fccb35]/30"
               >
-                {STORAGE_AREAS.map((area) => (
-                  <option key={area} value={area}>
-                    {area}
-                  </option>
-                ))}
+                <optgroup label="Borrowable Storage">
+                  {BORROWABLE_STORAGE_AREAS.map((area) => (
+                    <option key={area} value={area}>
+                      {area}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Non-Borrowable Storage">
+                  {NON_BORROWABLE_STORAGE_AREAS.map((area) => (
+                    <option key={area} value={area}>
+                      {area}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
             </label>
 
