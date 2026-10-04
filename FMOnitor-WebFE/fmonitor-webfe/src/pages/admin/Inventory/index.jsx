@@ -1,18 +1,28 @@
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faMagnifyingGlass,
   faDownload,
   faChartColumn,
   faPlus,
-  faPen,
   faImage,
   faCheck,
 } from '@fortawesome/free-solid-svg-icons'
 import AdminPageShell from '../../../components/layout/AdminPageShell'
 import Pagination from '../../../components/common/Pagination'
 import EquipmentModal from './modals/EquipmentModal'
-import { STORAGE_AREAS, CONDITIONS, AVAILABILITY_OPTIONS, INITIAL_EQUIPMENT } from './inventoryData'
+import EquipmentDetailsModal from './modals/EquipmentDetailsModal'
+import ConfirmModal from '../Accounts/modals/ConfirmModal'
+import Toast from '../Accounts/components/Toast'
+import {
+  STORAGE_AREAS,
+  BORROWABLE_STORAGE_AREAS,
+  NON_BORROWABLE_STORAGE_AREAS,
+  CONDITIONS,
+  AVAILABILITY_OPTIONS,
+  INITIAL_EQUIPMENT,
+} from './inventoryData'
 
 // 3 rows of the xl:4-column grid - a round number that also divides evenly
 // into the smaller grid widths (2/3 columns) without an awkward half-empty
@@ -64,6 +74,7 @@ function FilterSection({ title, options, counts, visible, onToggle }) {
               role="checkbox"
               aria-checked={checked}
               onClick={() => onToggle(option)}
+              title={option}
               className={`group flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors duration-150 ${
                 checked ? 'bg-[#fccb35]/20 text-gray-900' : 'text-gray-600 hover:bg-gray-50'
               }`}
@@ -103,13 +114,25 @@ function toCsv(items) {
 function InventoryContent() {
   const [equipment, setEquipment] = useState(INITIAL_EQUIPMENT)
   const [search, setSearch] = useState('')
-  const [visibleLocations, setVisibleLocations] = useState(() => new Set(STORAGE_AREAS))
-  const [visibleConditions, setVisibleConditions] = useState(() => new Set(CONDITIONS))
-  const [visibleAvailability, setVisibleAvailability] = useState(() => new Set(AVAILABILITY_OPTIONS))
-  const [sort, setSort] = useState('newest')
+  // Every section starts with nothing ticked, and an empty section doesn't
+  // filter at all - so the page opens on the full inventory, and ticking
+  // boxes narrows it down to just those values.
+  const [visibleLocations, setVisibleLocations] = useState(() => new Set())
+  const [visibleConditions, setVisibleConditions] = useState(() => new Set())
+  const [visibleAvailability, setVisibleAvailability] = useState(() => new Set())
+  const [sort, setSort] = useState('location')
   const [page, setPage] = useState(1)
+  const [viewingItem, setViewingItem] = useState(null)
   const [editingItem, setEditingItem] = useState(null)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [toast, setToast] = useState(null) // { message, type }
+
+  useEffect(() => {
+    if (!toast) return
+    const timer = setTimeout(() => setToast(null), 3000)
+    return () => clearTimeout(timer)
+  }, [toast])
 
   const locationCounts = useMemo(() => countBy(equipment, 'location', STORAGE_AREAS), [equipment])
   const conditionCounts = useMemo(() => countBy(equipment, 'condition', CONDITIONS), [equipment])
@@ -124,13 +147,18 @@ function InventoryContent() {
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase()
     const result = equipment.filter((e) => {
-      if (!visibleLocations.has(e.location)) return false
-      if (!visibleConditions.has(e.condition)) return false
-      if (!visibleAvailability.has(e.availability)) return false
+      if (visibleLocations.size && !visibleLocations.has(e.location)) return false
+      if (visibleConditions.size && !visibleConditions.has(e.condition)) return false
+      if (visibleAvailability.size && !visibleAvailability.has(e.availability)) return false
       if (!query) return true
       return e.name.toLowerCase().includes(query) || e.location.toLowerCase().includes(query)
     })
-    if (sort === 'name') result.sort((a, b) => a.name.localeCompare(b.name))
+    // Same order as the physical count sheet: grouped by storage area in
+    // STORAGE_AREAS order, then each area's rows top to bottom (seed ids
+    // follow the sheet; items added later land at the end of their area).
+    if (sort === 'location') {
+      result.sort((a, b) => STORAGE_AREAS.indexOf(a.location) - STORAGE_AREAS.indexOf(b.location) || a.id - b.id)
+    } else if (sort === 'name') result.sort((a, b) => a.name.localeCompare(b.name))
     else result.sort((a, b) => b.id - a.id) // newest (most recently added) first
     return result
   }, [equipment, visibleLocations, visibleConditions, visibleAvailability, search, sort])
@@ -150,10 +178,22 @@ function InventoryContent() {
   const handleAdd = (payload) => {
     setEquipment((prev) => [...prev, { ...payload, id: Math.max(0, ...prev.map((e) => e.id)) + 1 }])
     setShowAddModal(false)
+    setToast({ message: `${payload.name} added successfully`, type: 'success' })
   }
+  // Saving drops back to the details view (now showing the updated values)
+  // rather than closing everything - that's where the edit was started from.
   const handleEdit = (payload) => {
-    setEquipment((prev) => prev.map((e) => (e.id === editingItem.id ? { ...e, ...payload } : e)))
+    const updated = { ...editingItem, ...payload }
+    setEquipment((prev) => prev.map((e) => (e.id === updated.id ? updated : e)))
+    setViewingItem(updated)
     setEditingItem(null)
+    setToast({ message: 'Changes saved successfully', type: 'success' })
+  }
+  const handleDelete = () => {
+    setEquipment((prev) => prev.filter((e) => e.id !== viewingItem.id))
+    setToast({ message: `${viewingItem.name} deleted successfully`, type: 'danger' })
+    setConfirmingDelete(false)
+    setViewingItem(null)
   }
   const handleExportCsv = () => {
     const blob = new Blob([toCsv(filteredItems)], { type: 'text/csv;charset=utf-8;' })
@@ -182,8 +222,15 @@ function InventoryContent() {
 
           <div className="mt-3">
             <FilterSection
-              title="Location"
-              options={STORAGE_AREAS}
+              title="Borrowable Storage"
+              options={BORROWABLE_STORAGE_AREAS}
+              counts={locationCounts}
+              visible={visibleLocations}
+              onToggle={(v) => toggleInSet(setVisibleLocations, v)}
+            />
+            <FilterSection
+              title="Non-Borrowable Storage"
+              options={NON_BORROWABLE_STORAGE_AREAS}
               counts={locationCounts}
               visible={visibleLocations}
               onToggle={(v) => toggleInSet(setVisibleLocations, v)}
@@ -257,6 +304,7 @@ function InventoryContent() {
             onChange={(e) => setSort(e.target.value)}
             className="cursor-pointer rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 focus:border-[#fccb35] focus:outline-none"
           >
+            <option value="location">Storage area</option>
             <option value="newest">Newly added</option>
             <option value="name">Name (A-Z)</option>
           </select>
@@ -264,7 +312,12 @@ function InventoryContent() {
 
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {paginatedItems.map((eq) => (
-            <div key={eq.id} className="group rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+            <button
+              key={eq.id}
+              type="button"
+              onClick={() => setViewingItem(eq)}
+              className="group cursor-pointer rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-[#fccb35] hover:shadow-md"
+            >
               <div className="flex h-32 w-full items-center justify-center overflow-hidden rounded-lg bg-gray-100">
                 {eq.photoUrl ? (
                   <img src={eq.photoUrl} alt={eq.name} className="h-full w-full object-cover" />
@@ -274,21 +327,11 @@ function InventoryContent() {
               </div>
               <p className="mt-3 truncate text-[10px] font-bold uppercase tracking-wide text-gray-400">{eq.location}</p>
               <p className="mt-0.5 truncate text-sm font-bold text-gray-900">{eq.name}</p>
-              <div className="mt-2 flex items-center justify-between">
-                <p className="text-sm">
-                  <span className="font-bold text-gray-900">{eq.available}</span>{' '}
-                  <span className="text-xs text-gray-400">in stock</span>
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setEditingItem(eq)}
-                  aria-label={`Edit ${eq.name}`}
-                  className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition-colors duration-150 hover:bg-gray-50"
-                >
-                  <FontAwesomeIcon icon={faPen} className="h-3 w-3" />
-                </button>
-              </div>
-            </div>
+              <p className="mt-2 text-sm">
+                <span className="font-bold text-gray-900">{eq.available}</span>{' '}
+                <span className="text-xs text-gray-400">in stock</span>
+              </p>
+            </button>
           ))}
 
           {isLastPage && (
@@ -317,9 +360,36 @@ function InventoryContent() {
         </div>
       </div>
 
-      {showAddModal && <EquipmentModal onCancel={() => setShowAddModal(false)} onSubmit={handleAdd} />}
-      {editingItem && (
-        <EquipmentModal item={editingItem} onCancel={() => setEditingItem(null)} onSubmit={handleEdit} />
+      {/* Portaled to <body> - AdminPageShell's fade-in animation makes it a
+          stacking context, which otherwise traps these fixed overlays under
+          the sticky Topbar/Sidebar no matter their own z-index. */}
+      {createPortal(
+        <>
+          {showAddModal && <EquipmentModal onCancel={() => setShowAddModal(false)} onSubmit={handleAdd} />}
+          {viewingItem && !editingItem && (
+            <EquipmentDetailsModal
+              item={viewingItem}
+              onClose={() => setViewingItem(null)}
+              onEdit={() => setEditingItem(viewingItem)}
+              onDelete={() => setConfirmingDelete(true)}
+            />
+          )}
+          {editingItem && (
+            <EquipmentModal item={editingItem} onCancel={() => setEditingItem(null)} onSubmit={handleEdit} />
+          )}
+          {confirmingDelete && viewingItem && (
+            <ConfirmModal
+              variant="danger"
+              title="Delete this item?"
+              message={`${viewingItem.name} (${viewingItem.location}) will be removed from the inventory. This can't be undone.`}
+              confirmLabel="Delete"
+              onConfirm={handleDelete}
+              onCancel={() => setConfirmingDelete(false)}
+            />
+          )}
+          {toast && <Toast message={toast.message} type={toast.type} />}
+        </>,
+        document.body,
       )}
     </div>
   )
