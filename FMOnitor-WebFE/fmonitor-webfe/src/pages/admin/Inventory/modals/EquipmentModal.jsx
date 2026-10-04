@@ -3,6 +3,19 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faXmark } from '@fortawesome/free-solid-svg-icons'
 import PhotoFileInput from '../../../../components/common/PhotoFileInput'
 import { STORAGE_AREAS, CONDITIONS, AVAILABILITY_OPTIONS } from '../inventoryData'
+import { validateEquipment } from '../equipmentValidation' 
+
+//para mashow ung error messages -yuji
+const inputClass = (hasError) =>
+  `rounded-lg border px-3.5 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 ${
+    hasError
+      ? 'border-red-400 focus:border-red-400 focus:ring-red-200'
+      : 'border-gray-200 focus:border-[#fccb35] focus:ring-[#fccb35]/30'
+  }`
+  function FieldError ({ message }) {
+    if (!message) return null
+    return <p className ="text-xs font-medium text-red-600">{message}</p>
+  }
 
 // Add mode (no `item`) vs edit mode (`item` passed in) - same form either
 // way, same as AddStorageModal's own isEdit convention elsewhere in this app.
@@ -16,20 +29,24 @@ function EquipmentModal({ item, onCancel, onSubmit }) {
   const [condition, setCondition] = useState(item?.condition ?? CONDITIONS[0])
   const [availability, setAvailability] = useState(item?.availability ?? AVAILABILITY_OPTIONS[0])
   const [photoUrl, setPhotoUrl] = useState(item?.photoUrl ?? '')
+  const [errors, setErrors] = useState({})
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (!name.trim()) return
-    onSubmit({
-      name: name.trim(),
-      location,
-      available: Math.max(0, Number(available) || 0),
-      notWorking: Math.max(0, Number(notWorking) || 0),
-      condition,
-      availability,
-      photoUrl,
-    })
-  }
+const handleSubmit = (e) => {
+  e.preventDefault()
+  const found = validateEquipment({ name, available, notWorking })
+  setErrors(found)
+  if (Object.keys(found).length > 0) return // blocks submission
+
+  onSubmit({
+    name: name.trim(),
+    location,
+    available: Number(available),
+    notWorking: Number(notWorking),
+    condition,
+    availability,
+    photoUrl,
+  })
+}
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -43,6 +60,7 @@ function EquipmentModal({ item, onCancel, onSubmit }) {
           reachable regardless of how tall the middle content gets. */}
       <form
         onSubmit={handleSubmit}
+        noValidate
         className="relative flex max-h-[85vh] w-full max-w-sm animate-[fade-in-up_0.25s_ease-out_forwards] flex-col overflow-hidden rounded-2xl bg-white opacity-0 shadow-2xl"
       >
         <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4">
@@ -73,10 +91,10 @@ function EquipmentModal({ item, onCancel, onSubmit }) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 autoFocus
-                required
-                className="rounded-lg border border-gray-200 px-3.5 py-2 text-sm text-gray-900 focus:border-[#fccb35] focus:outline-none focus:ring-2 focus:ring-[#fccb35]/30"
+                className={inputClass(errors.name)}
                 placeholder="e.g. Stackable Chairs (Black)"
               />
+              <FieldError message={errors.name} />
             </label>
 
             <label className="flex flex-col gap-1">
@@ -102,8 +120,9 @@ function EquipmentModal({ item, onCancel, onSubmit }) {
                   min="0"
                   value={available}
                   onChange={(e) => setAvailable(e.target.value)}
-                  className="rounded-lg border border-gray-200 px-3.5 py-2 text-sm text-gray-900 focus:border-[#fccb35] focus:outline-none focus:ring-2 focus:ring-[#fccb35]/30"
+                  className={inputClass(errors.available)}
                 />
+                <FieldError message={errors.available} />
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Not Working</span>
@@ -112,8 +131,9 @@ function EquipmentModal({ item, onCancel, onSubmit }) {
                   min="0"
                   value={notWorking}
                   onChange={(e) => setNotWorking(e.target.value)}
-                  className="rounded-lg border border-gray-200 px-3.5 py-2 text-sm text-gray-900 focus:border-[#fccb35] focus:outline-none focus:ring-2 focus:ring-[#fccb35]/30"
+                  className={inputClass(errors.notWorking)}
                 />
+                <FieldError message={errors.notWorking} />
               </label>
             </div>
 
