@@ -1,5 +1,11 @@
+import { useCallback, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faXmark, faImage, faPen, faTrash } from '@fortawesome/free-solid-svg-icons'
+import { faXmark, faImage, faPen, faTrash, faFlag, faExpand } from '@fortawesome/free-solid-svg-icons'
+import { AvailabilityTag, ConditionTag } from '../components/InventoryTags'
+import PhotoLightbox from '../components/PhotoLightbox'
+import RelativeTime from '../components/RelativeTime'
+import { formatDateTime } from '../utils/timeFormat'
+import { formatItemId } from '../utils/itemId'
 
 function DetailRow({ label, value }) {
   return (
@@ -10,7 +16,10 @@ function DetailRow({ label, value }) {
   )
 }
 
-function EquipmentDetailsModal({ item, onClose, onEdit, onDelete }) {
+function EquipmentDetailsModal({ item, openReportCount = 0, onClose, onEdit, onDelete, onReport }) {
+  const [photoExpanded, setPhotoExpanded] = useState(false)
+  const closePhoto = useCallback(() => setPhotoExpanded(false), [])
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-16 lg:py-20">
       <div onClick={onClose} aria-hidden="true" className="absolute inset-0 bg-black/50" />
@@ -29,24 +38,67 @@ function EquipmentDetailsModal({ item, onClose, onEdit, onDelete }) {
         </div>
 
         <div className="overflow-y-auto px-6 py-5">
-          <div className="flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-xl bg-gray-100">
+          <div className="relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-xl bg-gray-100">
             {item.photoUrl ? (
-              <img src={item.photoUrl} alt={item.name} className="h-full w-full object-cover" />
+              <>
+                <img src={item.photoUrl} alt={item.name} className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => setPhotoExpanded(true)}
+                  aria-label="View full photo"
+                  title="View full photo"
+                  className="absolute right-2.5 top-2.5 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-black/55 text-white shadow-sm transition-colors duration-150 hover:bg-black/75"
+                >
+                  <FontAwesomeIcon icon={faExpand} className="h-3.5 w-3.5" />
+                </button>
+              </>
             ) : (
               <FontAwesomeIcon icon={faImage} className="h-10 w-10 text-gray-300" />
             )}
           </div>
 
+          {photoExpanded && (
+            <PhotoLightbox
+              src={item.photoUrl}
+              alt={item.name}
+              caption={`${item.name} · ${formatItemId(item.id)}`}
+              onClose={closePhoto}
+            />
+          )}
+
           <p className="mt-4 text-[10px] font-bold uppercase tracking-wide text-gray-400">{item.location}</p>
           <p className="mt-0.5 text-lg font-bold text-gray-900">{item.name}</p>
 
           <div className="mt-3">
-            <DetailRow label="Storage Area" value={item.location} />
-            <DetailRow label="Available" value={item.available} />
-            <DetailRow label="Not Working" value={item.notWorking} />
-            <DetailRow label="Condition" value={item.condition} />
-            <DetailRow label="Availability" value={item.availability} />
+            <DetailRow
+              label="Item ID"
+              value={<span className="font-mono font-semibold">{formatItemId(item.id)}</span>}
+            />
+            <DetailRow label="Storage" value={item.location} />
+            <DetailRow label="Quantity Available" value={item.available} />
+            <DetailRow label="Condition" value={<ConditionTag condition={item.condition} />} />
+            <DetailRow label="Type" value={<AvailabilityTag availability={item.availability} />} />
+            <DetailRow label="Open Reports" value={openReportCount} />
+            <DetailRow label="Date Added" value={formatDateTime(item.createdAt)} />
+            <DetailRow
+              label="Last Updated"
+              value={
+                <span className="text-right">
+                  <RelativeTime value={item.updatedAt} className="font-semibold" />
+                  <span className="block text-[11px] text-gray-400">{formatDateTime(item.updatedAt)}</span>
+                </span>
+              }
+            />
           </div>
+
+          <button
+            type="button"
+            onClick={onReport}
+            className="mt-3 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 px-4 py-2 text-xs font-semibold text-gray-500 transition-colors duration-150 hover:border-[#fccb35] hover:text-[#a3790f]"
+          >
+            <FontAwesomeIcon icon={faFlag} className="h-3 w-3" />
+            Report an Issue
+          </button>
         </div>
 
         <div className="flex shrink-0 gap-2.5 border-t border-gray-100 px-6 py-4">

@@ -7,7 +7,7 @@ const DEFAULT_START_HOUR = 6
 const DEFAULT_END_HOUR = 20
 
 function hourLabel(hour) {
-  return new Date(2000, 0, 1, hour).toLocaleTimeString(undefined, { hour: 'numeric' })
+  return new Date(2000, 0, 1, hour).toLocaleTimeString(undefined, { hour: 'numeric', hour12: true })
 }
 
 function DayView({ date, now, tasksByDay, onOpenTask, onAddAt }) {

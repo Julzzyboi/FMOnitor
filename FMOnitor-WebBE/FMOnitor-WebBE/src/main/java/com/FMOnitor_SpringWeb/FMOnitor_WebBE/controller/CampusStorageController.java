@@ -4,10 +4,14 @@ import com.FMOnitor_SpringWeb.FMOnitor_WebBE.model.tbl_CampusFacilities;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.model.tbl_CampusStorages;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_CampusFacilitiesRepo;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_CampusStoragesRepo;
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_InventoryItemsRepo;
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_InventoryReportsRepo;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.service.GeofenceService;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.util.MapUtil;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -15,6 +19,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -23,15 +28,24 @@ import java.util.List;
 @RequestMapping("/api/campus-storages")
 public class CampusStorageController {
 
+    private static final String INVENTORY_TRANSFER = "transfer";
+    private static final String INVENTORY_DELETE = "delete";
+
     private final tbl_CampusStoragesRepo campusStoragesRepo;
     private final tbl_CampusFacilitiesRepo campusFacilitiesRepo;
+    private final tbl_InventoryItemsRepo inventoryItemsRepo;
+    private final tbl_InventoryReportsRepo inventoryReportsRepo;
     private final GeofenceService geofenceService;
 
     public CampusStorageController(tbl_CampusStoragesRepo campusStoragesRepo,
                                    tbl_CampusFacilitiesRepo campusFacilitiesRepo,
+                                   tbl_InventoryItemsRepo inventoryItemsRepo,
+                                   tbl_InventoryReportsRepo inventoryReportsRepo,
                                    GeofenceService geofenceService) {
         this.campusStoragesRepo = campusStoragesRepo;
         this.campusFacilitiesRepo = campusFacilitiesRepo;
+        this.inventoryItemsRepo = inventoryItemsRepo;
+        this.inventoryReportsRepo = inventoryReportsRepo;
         this.geofenceService = geofenceService;
     }
 
@@ -115,11 +129,44 @@ public class CampusStorageController {
         return ResponseEntity.ok(campusStoragesRepo.save(storage));
     }
 
+    // A storage that still holds inventory can't just vanish: the caller must
+    // say what happens to the items - ?inventoryAction=transfer&transferToStorageId=X
+    // moves them, ?inventoryAction=delete deletes them (and their reports).
+    // Without it the request is refused with 409 and the item count.
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteCampusStorage(@PathVariable Long id) {
+    @Transactional
+    public ResponseEntity<?> deleteCampusStorage(@PathVariable Long id,
+                                                 @RequestParam(required = false) String inventoryAction,
+                                                 @RequestParam(required = false) Long transferToStorageId) {
         if (!campusStoragesRepo.existsById(id)) {
             return ResponseEntity.notFound().build();
         }
+
+        long itemCount = inventoryItemsRepo.countByStorageId(id);
+        if (itemCount > 0) {
+            if (inventoryAction == null) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(MapUtil.of(
+                    "message", "This storage still holds " + itemCount + " inventory item"
+                        + (itemCount == 1 ? "" : "s") + ". Move them to another storage or delete them with it.",
+                    "itemCount", itemCount));
+            }
+            if (INVENTORY_TRANSFER.equals(inventoryAction)) {
+                if (transferToStorageId == null || transferToStorageId.equals(id)) {
+                    return badRequest("Pick a different storage to move the items to");
+                }
+                if (!campusStoragesRepo.existsById(transferToStorageId)) {
+                    return badRequest("No campus storage exists with that transferToStorageId");
+                }
+                inventoryItemsRepo.moveToStorage(id, transferToStorageId);
+            } else if (INVENTORY_DELETE.equals(inventoryAction)) {
+                List<Long> itemIds = inventoryItemsRepo.findIdsByStorageId(id);
+                inventoryReportsRepo.deleteAllForItems(itemIds);
+                inventoryItemsRepo.deleteAllInStorage(id);
+            } else {
+                return badRequest("inventoryAction must be 'transfer' or 'delete'");
+            }
+        }
+
         campusStoragesRepo.deleteById(id);
         return ResponseEntity.noContent().build();
     }

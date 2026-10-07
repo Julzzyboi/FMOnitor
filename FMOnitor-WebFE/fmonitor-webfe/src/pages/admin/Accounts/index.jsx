@@ -11,17 +11,12 @@ import AddUserModal from './modals/AddUserModal'
 import UserDetailsModal from './modals/UserDetailsModal'
 import ConfirmModal from './modals/ConfirmModal'
 import Toast from './components/Toast'
+import { formatYmdTime12h } from '../../../utils/dateTime'
 import { ROLES, FILTERABLE_STATUSES } from './data/mockUsers'
 import { useAuth } from '../../../context/AuthContext'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 const PAGE_SIZE = 8
-
-function formatDate(isoString) {
-  const d = new Date(isoString)
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
 
 function mapAccount(account) {
   return {
@@ -30,7 +25,7 @@ function mapAccount(account) {
     email: account.email,
     role: account.role,
     status: account.status,
-    dateCreated: formatDate(account.createdAt),
+    dateCreated: formatYmdTime12h(account.createdAt),
     avatarUrl: account.pictureUrl,
     deletedAt: account.deletedAt,
   }

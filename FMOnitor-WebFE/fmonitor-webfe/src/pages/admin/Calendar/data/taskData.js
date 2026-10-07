@@ -1,6 +1,22 @@
 import { faTruck, faRotateLeft, faPeopleCarryBox, faArrowRightArrowLeft } from '@fortawesome/free-solid-svg-icons'
-import { BORROWABLE_STORAGE_AREAS } from '../../Inventory/data/inventoryData'
 import { addDays, dayKey } from '../utils/dateUtils'
+
+// Mock pickup/drop-off spots until tasks come from the backend.
+const STORAGE_SPOTS = [
+  'Qpav Mezzanine',
+  'Qpav',
+  'Practice Gym',
+  'Grandstand',
+  'Health Service Back Area',
+  'St. Raymund Back Area',
+  '2 Wing Van',
+  'Motorpool',
+  'FMO Office Garage',
+  'TYK Back Parking Area',
+  'Frassati 22nd Floor',
+  'Bgpop Ground Floor',
+  'Con Van #3',
+]
 
 export const ACTIVE_STATUSES = ['Scheduled', 'Picked Up', 'In Transit']
 export const COMPLETED_STATUSES = ['Delivered', 'Cancelled']
@@ -49,7 +65,7 @@ export const TYPE_ICONS = {
 }
 
 const VENUES = ['Plaza Mayor', 'Quad Pavilion', 'Benavides Park', 'Main Building Lobby', 'Medicine Auditorium']
-export const TASK_LOCATIONS = [...new Set([...BORROWABLE_STORAGE_AREAS, 'FMO Garage', ...VENUES])].sort()
+export const TASK_LOCATIONS = [...new Set([...STORAGE_SPOTS, 'FMO Garage', ...VENUES])].sort()
 
 export const HAULERS = ['Juan Dela Cruz', 'Mark Reyes', 'Paolo Santos', 'Rico Mendoza']
 export const DURATIONS = [30, 60, 90, 120, 180, 240]

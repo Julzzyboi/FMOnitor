@@ -36,11 +36,6 @@ export const CAMPUS_AREA_TYPES = [
   'Court',
 ]
 
-const MOCK_ITEM_COUNTS = [8, 5, 6, 5, 4, 5, 6, 4, 6, 4, 4, 4, 2]
-export function mockItemCount(id) {
-  return MOCK_ITEM_COUNTS[id % MOCK_ITEM_COUNTS.length]
-}
-
 const MOCK_EVENT_COUNTS = [
   { scheduled: 3, active: 1 },
   { scheduled: 5, active: 0 },

@@ -63,7 +63,7 @@ export function fromInputValues(dateValue, timeValue = '00:00') {
 }
 
 export function formatTime(date) {
-  return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+  return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true })
 }
 
 export function formatDate(date, options = { month: 'short', day: 'numeric', year: 'numeric' }) {

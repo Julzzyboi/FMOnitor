@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
@@ -13,11 +13,14 @@ import {
   faPlus,
   faBoxOpen,
 } from '@fortawesome/free-solid-svg-icons'
-import { CAMPUS_AREA_TYPES, FACILITY_TYPE_STYLES, mockEventCounts, mockItemCount } from '../data/facilityTypes'
+import { CAMPUS_AREA_TYPES, FACILITY_TYPE_STYLES, mockEventCounts } from '../data/facilityTypes'
+import DeleteStorageModal from '../modals/DeleteStorageModal'
 
-function detailStats(item, { storageCount, venueCount } = {}) {
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+
+function detailStats(item, { storageCount, venueCount, itemCount } = {}) {
   if (item.type === 'Storage') {
-    return [{ label: 'Total Inventories', value: mockItemCount(item.id) }]
+    return [{ label: 'Total Inventories', value: itemCount ?? '…' }]
   }
   if (item.type === 'Venue') {
     const events = mockEventCounts(item.id)
@@ -126,6 +129,32 @@ function AreaDetailsContent({
 }) {
   const [activeTab, setActiveTab] = useState('Storage')
   const [deleteError, setDeleteError] = useState(null)
+  const [deletingStorage, setDeletingStorage] = useState(false)
+  // { storageId, active, trashed } of the last storage whose inventory was counted.
+  const [inventoryCount, setInventoryCount] = useState(null)
+
+  const subStorageId = subItem?.type === 'Storage' ? subItem.id : null
+  useEffect(() => {
+    if (subStorageId == null) return
+    let cancelled = false
+    const countItems = (trashed) =>
+      fetch(`${API_BASE_URL}/api/inventory-items?storageId=${subStorageId}&trashed=${trashed}`, {
+        credentials: 'include',
+      })
+        .then((res) => (res.ok ? res.json() : []))
+        .catch(() => [])
+        .then((items) => items.length)
+    Promise.all([countItems(false), countItems(true)]).then(([active, trashed]) => {
+      if (!cancelled) setInventoryCount({ storageId: subStorageId, active, trashed })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [subStorageId])
+  const counted = inventoryCount?.storageId === subStorageId ? inventoryCount : null
+  const subStorageItemCount = counted ? counted.active : null
+  // Trashed items still belong to the storage until purged, so deleting it has to deal with them too.
+  const subStorageTotalCount = counted ? counted.active + counted.trashed : null
 
   const storageItems = allFacilities.filter((f) => f.type === 'Storage' && f.facilityId === area.id)
   const venueItems = allFacilities.filter((f) => f.type === 'Venue' && f.facilityId === area.id)
@@ -141,7 +170,21 @@ function AreaDetailsContent({
     }
   }
 
+  const handleDeleteStorage = async (inventoryOptions) => {
+    const result = await onDeleteItem(subItem, inventoryOptions)
+    if (result?.ok) {
+      setDeletingStorage(false)
+      onSubItemChange(null)
+    }
+    return result
+  }
+
   const handleDeleteItem = async () => {
+    if (subItem.type === 'Storage') {
+      setDeleteError(null)
+      setDeletingStorage(true)
+      return
+    }
     if (!window.confirm(`Delete "${subItem.name}"? This can't be undone.`)) return
     setDeleteError(null)
     const result = await onDeleteItem(subItem)
@@ -170,7 +213,7 @@ function AreaDetailsContent({
         <LocationDetailsBody
           item={subItem}
           description={subItem.description || `${subItem.type === 'Venue' ? 'Venue' : 'Storage area'} inside ${area.name}.`}
-          stats={detailStats(subItem)}
+          stats={detailStats(subItem, { itemCount: subStorageItemCount })}
           action={subItem.type === 'Storage' ? <ViewInventoryLink /> : null}
           editLabel={subItem.type === 'Venue' ? 'Edit Venue' : 'Edit Storage'}
           onEdit={() => onEditItem(subItem)}
@@ -178,6 +221,19 @@ function AreaDetailsContent({
           onDelete={handleDeleteItem}
           deleteError={deleteError}
         />
+
+        {deletingStorage && (
+          <DeleteStorageModal
+            storage={subItem}
+            itemCount={subStorageTotalCount}
+            trashedCount={counted?.trashed ?? 0}
+            otherStorages={allFacilities
+              .filter((f) => f.type === 'Storage' && f.id !== subItem.id)
+              .sort((a, b) => a.name.localeCompare(b.name))}
+            onCancel={() => setDeletingStorage(false)}
+            onConfirm={handleDeleteStorage}
+          />
+        )}
       </div>
     )
   }

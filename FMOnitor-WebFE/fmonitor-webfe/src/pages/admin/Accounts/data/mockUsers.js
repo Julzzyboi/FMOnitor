@@ -1,3 +1,5 @@
+import { formatYmdTime12h } from '../../../../utils/dateTime'
+
 export const ROLES = ['Superadmin', 'Admin', 'Hauler', 'Requestor']
 export const STATUSES = ['Active', 'Inactive', 'Unregistered', 'Disabled', 'Deleted']
 export const FILTERABLE_STATUSES = ['Active', 'Inactive', 'Unregistered']
@@ -40,8 +42,7 @@ function randomDate(random, startYear = 2023) {
   const start = new Date(startYear, 0, 1).getTime()
   const end = new Date().getTime()
   const date = new Date(start + random() * (end - start))
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+  return formatYmdTime12h(date)
 }
 
 const USER_COUNT = 12

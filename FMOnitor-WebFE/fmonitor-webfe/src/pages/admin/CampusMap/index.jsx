@@ -118,9 +118,11 @@ function CampusMapContent() {
     }
   }
 
-  const deleteItemByKind = async (kind, id) => {
+  // `params` adds query options, e.g. what to do with a storage's inventory.
+  const deleteItemByKind = async (kind, id, params) => {
+    const query = params ? `?${new URLSearchParams(params)}` : ''
     try {
-      const res = await fetch(`${API_BASE_URL}${ENDPOINTS[kind]}/${id}`, {
+      const res = await fetch(`${API_BASE_URL}${ENDPOINTS[kind]}/${id}${query}`, {
         method: 'DELETE',
         credentials: 'include',
       })
@@ -228,7 +230,7 @@ function CampusMapContent() {
         onEditArea={(area) => setEditingItem({ kind: 'area', data: area })}
         onDeleteArea={(id) => deleteItemByKind('area', id)}
         onEditItem={(item) => setEditingItem({ kind: item.type === 'Storage' ? 'storage' : 'venue', data: item })}
-        onDeleteItem={(item) => deleteItemByKind(item.type === 'Storage' ? 'storage' : 'venue', item.id)}
+        onDeleteItem={(item, params) => deleteItemByKind(item.type === 'Storage' ? 'storage' : 'venue', item.id, params)}
         onAddEmbeddedItem={startEmbeddedPlacing}
         onSelectionActiveChange={(active) => {
           if (active) setNavOpen(false)

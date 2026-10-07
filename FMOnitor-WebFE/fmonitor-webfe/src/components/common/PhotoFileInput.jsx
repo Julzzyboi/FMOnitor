@@ -45,11 +45,14 @@ function PhotoFileInput({
   const inputRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  const [dragging, setDragging] = useState(false)
 
-  const handleFileChange = async (e) => {
-    const file = e.target.files?.[0]
-    e.target.value = ''
+  const processFile = async (file) => {
     if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setError("That file isn't an image.")
+      return
+    }
     setError(null)
     setBusy(true)
     try {
@@ -62,13 +65,43 @@ function PhotoFileInput({
     }
   }
 
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    processFile(file)
+  }
+
+  // Dropping a file on the empty box or on the preview both work.
+  const dropHandlers = {
+    onDragOver: (e) => {
+      e.preventDefault()
+      if (!busy) setDragging(true)
+    },
+    onDragLeave: (e) => {
+      if (!e.currentTarget.contains(e.relatedTarget)) setDragging(false)
+    },
+    onDrop: (e) => {
+      e.preventDefault()
+      setDragging(false)
+      if (!busy) processFile(e.dataTransfer.files?.[0])
+    },
+  }
+
   return (
     <div className="flex flex-col gap-1.5">
       <span className={labelClassName}>{label}</span>
 
       {value ? (
-        <div className={`relative ${previewSize} overflow-hidden rounded-lg border border-gray-200`}>
+        <div
+          {...dropHandlers}
+          className={`relative ${previewSize} overflow-hidden rounded-lg border ${dragging ? 'border-[#fccb35] ring-2 ring-[#fccb35]/40' : 'border-gray-200'}`}
+        >
           <img src={value} alt="" className="h-full w-full object-cover" />
+          {dragging && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/40 text-xs font-semibold text-white">
+              Drop to replace
+            </div>
+          )}
           <button
             type="button"
             onClick={() => onChange('')}
@@ -81,12 +114,19 @@ function PhotoFileInput({
       ) : (
         <button
           type="button"
+          {...dropHandlers}
           onClick={() => inputRef.current?.click()}
           disabled={busy}
-          className={`flex ${previewSize} cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-300 text-gray-400 transition-colors duration-150 hover:border-[#fccb35] hover:text-[#a3790f] disabled:cursor-not-allowed`}
+          className={`flex ${previewSize} cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed transition-colors duration-150 disabled:cursor-not-allowed ${
+            dragging
+              ? 'border-[#fccb35] bg-[#fccb35]/10 text-[#a3790f]'
+              : 'border-gray-300 text-gray-400 hover:border-[#fccb35] hover:text-[#a3790f]'
+          }`}
         >
           <FontAwesomeIcon icon={busy ? faSpinner : faImage} className={`h-5 w-5 ${busy ? 'animate-spin' : ''}`} />
-          <span className="text-xs font-semibold">{busy ? 'Processing…' : 'Click to upload a photo'}</span>
+          <span className="text-xs font-semibold">
+            {busy ? 'Processing…' : dragging ? 'Drop the photo here' : 'Click or drag a photo here'}
+          </span>
         </button>
       )}
 

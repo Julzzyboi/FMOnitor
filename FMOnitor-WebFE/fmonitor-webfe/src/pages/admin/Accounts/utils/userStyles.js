@@ -1,3 +1,5 @@
+import { formatYmdTime12h } from '../../../../utils/dateTime'
+
 export const ROLE_STYLES = {
   Superadmin: { dot: 'bg-[#fccb35]', text: 'text-[#a3790f] font-bold' },
   Admin: { dot: 'bg-blue-500', text: 'text-gray-800 font-semibold' },
@@ -25,7 +27,5 @@ export function daysUntilPurge(deletedAt) {
 export function purgeDate(deletedAt) {
   if (!deletedAt) return null
   const purgeMs = new Date(deletedAt).getTime() + PURGE_RETENTION_DAYS * 24 * 60 * 60 * 1000
-  const d = new Date(purgeMs)
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  return formatYmdTime12h(new Date(purgeMs))
 }
