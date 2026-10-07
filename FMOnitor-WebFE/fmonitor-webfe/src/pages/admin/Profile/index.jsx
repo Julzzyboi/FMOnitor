@@ -1,4 +1,4 @@
-import AdminPageShell from '../../components/layout/AdminPageShell'
+import AdminPageShell from '../../../components/layout/AdminPageShell'
 
 function Profile() {
   return <AdminPageShell />

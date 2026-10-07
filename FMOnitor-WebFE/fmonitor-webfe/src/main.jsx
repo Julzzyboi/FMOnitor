@@ -5,9 +5,6 @@ import './index.css'
 import './utils/sessionGuard'
 import App from './App.jsx'
 
-// @fortawesome/react-fontawesome auto-injects its own CSS (.svg-inline--fa { height: 1em })
-// which fights with Tailwind's h-*/w-* utilities on the icons. Disable it and size icons
-// purely through Tailwind classes instead.
 config.autoAddCss = false
 
 createRoot(document.getElementById('root')).render(

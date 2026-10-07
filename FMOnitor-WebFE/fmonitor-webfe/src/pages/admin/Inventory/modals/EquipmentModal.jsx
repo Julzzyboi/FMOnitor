@@ -8,10 +8,9 @@ import {
   NON_BORROWABLE_STORAGE_AREAS,
   CONDITIONS,
   AVAILABILITY_OPTIONS,
-} from '../inventoryData'
-import { validateEquipment } from '../equipmentValidation' 
+} from '../data/inventoryData'
+import { validateEquipment } from '../utils/equipmentValidation' 
 
-//para mashow ung error messages -yuji
 const inputClass = (hasError) =>
   `rounded-lg border px-3.5 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 ${
     hasError
@@ -23,10 +22,6 @@ const inputClass = (hasError) =>
     return <p className ="text-xs font-medium text-red-600">{message}</p>
   }
 
-
-// Add mode (no `item`) vs edit mode (`item` passed in) - same form either
-// way, same as AddStorageModal's own isEdit convention elsewhere in this app.
-// Delete lives on EquipmentDetailsModal instead, which opens this for edits.
 function EquipmentModal({ item, onCancel, onSubmit }) {
   const isEdit = !!item
   const [name, setName] = useState(item?.name ?? '')
@@ -42,7 +37,7 @@ const handleSubmit = (e) => {
   e.preventDefault()
   const found = validateEquipment({ name, available, notWorking })
   setErrors(found)
-  if (Object.keys(found).length > 0) return // blocks submission
+  if (Object.keys(found).length > 0) return
 
   onSubmit({
     name: name.trim(),
@@ -59,12 +54,6 @@ const handleSubmit = (e) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-16 lg:py-20">
       <div onClick={onCancel} aria-hidden="true" className="absolute inset-0 bg-black/50" />
 
-      {/* max-h-[85vh] + a scrollable middle band (not the whole form) - the
-          full-square photo preview plus every field could add up to taller
-          than a laptop viewport, and the old unbounded form just overflowed
-          off both edges of the screen with Save unreachable. Header/footer
-          staying fixed outside the scroll area keeps Cancel/Save always
-          reachable regardless of how tall the middle content gets. */}
       <form
         onSubmit={handleSubmit}
         noValidate

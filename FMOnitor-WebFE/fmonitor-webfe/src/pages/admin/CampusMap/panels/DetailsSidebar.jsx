@@ -1,19 +1,6 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faXmark, faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons'
 
-// Docked to the right edge of the map (not a floating callout tracking a
-// screen point anymore) - can minimize to a thin icon strip or maximize to
-// show full details, independent of the close button which dismisses the
-// selection entirely. Plain header (just title + close/minimize) - every
-// location, area or drilled-into storage/venue item alike, shares this same
-// "Location Details" panel design now, so there's no more per-type colored
-// badge to show here.
-//
-// Only ever mounted while something's selected (see MapCanvas's `{selected
-// && <DetailsSidebar>...}`) - clicking a different area clears the selection
-// immediately (unmounting this instantly, no lingering) and only sets the
-// new one once the camera's finished flying to it, which remounts this
-// fresh and plays the slide-in entrance below for the new area.
 function DetailsSidebar({ title, minimized, onToggleMinimize, onClose, children }) {
   if (minimized) {
     return (

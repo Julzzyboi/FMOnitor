@@ -1,19 +1,7 @@
-// Geofences are rectangles lined up with the campus grid.
-//
-// A facility's geofence is the smallest rectangle around its outline
-// (footprintJson), turned to the campus grid, then grown by the margin on
-// every side - so it's always a clean rectangle, never following every nook
-// of a building, and a gate's small square doesn't sit like a diamond against
-// the campus's diagonal streets. The campus grid's direction is read from the
-// campus boundary itself (see campusGridAngle).
-//
-// The backend (GeofenceService) runs the exact same math - keep the two in
-// step, including FACILITY_GEOFENCE_MARGIN_M = FACILITY_MARGIN_METERS.
 export const FACILITY_GEOFENCE_MARGIN_M = 10
 
 const METERS_PER_DEG_LAT = 111320
 
-// The facility's outline as a closed [[lng, lat], ...] ring, or null.
 export function facilityOutline(facility) {
   let ring
   try {
@@ -26,9 +14,6 @@ export function facilityOutline(facility) {
   return first[0] === last[0] && first[1] === last[1] ? ring : [...ring, first]
 }
 
-// Flat local projection in meters around `origin` ([lng, lat]), turned by
-// `angle` radians - `u`/`v` run along the campus grid. Accurate to well under
-// a meter at campus scale.
 function gridFrame(origin, angle) {
   const [lng0, lat0] = origin
   const kx = METERS_PER_DEG_LAT * Math.cos((lat0 * Math.PI) / 180)
@@ -54,16 +39,12 @@ function boundsOf(points) {
   return { minU: Math.min(...us), maxU: Math.max(...us), minV: Math.min(...vs), maxV: Math.max(...vs) }
 }
 
-// Direction of the campus grid, in radians within [0, pi/2): the turn of the
-// smallest rectangle that fits around the campus boundary. For UST that's
-// the angle of its diagonal streets. 0 (north-up) when there's no boundary.
 export function campusGridAngle(boundaryRing) {
   const points = (boundaryRing ?? []).slice(0, -1)
   if (points.length < 3) return 0
   const straight = gridFrame(points[0], 0)
   const flat = points.map((p) => straight.toGrid(p))
   let best = { angle: 0, area: Infinity }
-  // The best fit always lies along one of the outline's own edges.
   for (let i = 0; i < flat.length; i++) {
     const [x1, y1] = flat[i]
     const [x2, y2] = flat[(i + 1) % flat.length]
@@ -78,7 +59,6 @@ export function campusGridAngle(boundaryRing) {
   return best.angle
 }
 
-// The facility's geofence rectangle as { frame, bounds }, or null.
 function facilityGeofenceBox(facility, angle) {
   const ring = facilityOutline(facility)
   if (!ring) return null
@@ -98,7 +78,6 @@ function boxRing(frame, { minU, maxU, minV, maxV }) {
   return [...corners, corners[0]]
 }
 
-// The facility's geofence as a closed [[lng, lat], ...] ring, for drawing.
 export function facilityGeofenceRing(facility, angle) {
   const box = facilityGeofenceBox(facility, angle)
   return box ? boxRing(box.frame, box.bounds) : null

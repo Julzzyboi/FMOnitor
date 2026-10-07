@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faXmark } from '@fortawesome/free-solid-svg-icons'
-import { DURATIONS, HAULERS, TASK_LOCATIONS, TASK_TYPES } from '../taskData'
-import { fromInputValues, toDateInputValue, toTimeInputValue } from '../dateUtils'
+import { DURATIONS, HAULERS, TASK_LOCATIONS, TASK_TYPES } from '../data/taskData'
+import { fromInputValues, toDateInputValue, toTimeInputValue } from '../utils/dateUtils'
 
 const INPUT_CLASS =
   'w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm text-gray-900 focus:border-[#fccb35] focus:outline-none focus:ring-2 focus:ring-[#fccb35]/30'
@@ -20,9 +20,6 @@ function durationLabel(mins) {
   return mins < 60 ? `${mins} min` : `${mins / 60} hr${mins === 60 ? '' : 's'}`
 }
 
-// Add mode (`defaultStart` only) vs edit mode (`task` passed in) - same form
-// either way, same convention as Inventory's EquipmentModal. Status isn't a
-// field here; it moves through the details modal's actions instead.
 function TaskModal({ task, defaultStart, onCancel, onSubmit }) {
   const isEdit = !!task
   const start = task?.scheduledAt ?? defaultStart

@@ -9,11 +9,6 @@ import { useAuth } from '../../context/AuthContext'
 
 const COLLAPSED_STORAGE_KEY = 'sidebarCollapsed'
 
-// Label text fades/shrinks via max-width + opacity (instead of snapping with
-// `hidden`) so it animates in lockstep with the aside's own width transition -
-// a `hidden` swap finishes instantly while the width is still animating,
-// which is what let text overflow the half-collapsed aside and force a
-// page-wide horizontal scrollbar for the rest of the 300ms.
 const LABEL_TRANSITION =
   'overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-300 ease-in-out'
 
@@ -21,8 +16,6 @@ function Sidebar({ open, onClose }) {
   const { user } = useAuth()
   const visibleNavItems = NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(user?.role))
 
-  // Persisted so the sidebar stays in whichever mode (minimal/detailed) the
-  // user last picked instead of resetting to detailed on every reload.
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem(COLLAPSED_STORAGE_KEY) === 'true'
@@ -34,9 +27,7 @@ function Sidebar({ open, onClose }) {
   useEffect(() => {
     try {
       localStorage.setItem(COLLAPSED_STORAGE_KEY, String(collapsed))
-    } catch {
-      // private browsing / storage disabled - collapse state just won't persist
-    }
+    } catch {}
   }, [collapsed])
 
   const handleLogout = () => {
@@ -45,7 +36,6 @@ function Sidebar({ open, onClose }) {
 
   return (
     <>
-      {/* mobile backdrop */}
       {open && (
         <div
           onClick={onClose}
@@ -54,17 +44,11 @@ function Sidebar({ open, onClose }) {
         />
       )}
 
-      {/* sidebar */}
       <aside
         className={`fixed inset-y-0 left-0 z-50 flex h-screen w-52 transform flex-col overflow-x-hidden bg-[#141414] transition-[width,transform] duration-300 ease-in-out lg:sticky lg:top-0 lg:translate-x-0 ${
           collapsed ? 'lg:w-16' : 'lg:w-52'
         } ${open ? 'translate-x-0' : 'max-lg:-translate-x-full'}`}
       >
-        {/* logo/title doubles as the minimal/detailed toggle - desktop only,
-            mobile overlay always stays in detailed mode. Padding/alignment
-            here is constant (never toggled) so the logo icon's position never
-            shifts when collapsing - only the label's own width/opacity
-            animates, in lockstep with it. */}
         <button
           type="button"
           onClick={() => setCollapsed((v) => !v)}

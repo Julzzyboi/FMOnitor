@@ -10,10 +10,6 @@ const OPTIONS = [
   { mode: 'dark', icon: faMoon, label: 'Dark map' },
 ]
 
-// Light/dark switch for the campus map, docked under the zoom buttons
-// (top-left - MapCanvas's NavigationControl). 'auto' keeps the old behavior
-// of following the clock; 'light'/'dark' override it, e.g. for anyone who
-// prefers the light map even at night.
 function MapThemeToggle({ mode, onChange }) {
   return (
     <div

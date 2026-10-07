@@ -1,6 +1,6 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faPlus } from '@fortawesome/free-solid-svg-icons'
-import { dayKey, formatTime, isSameDay } from '../dateUtils'
+import { dayKey, formatTime, isSameDay } from '../utils/dateUtils'
 import { TaskCard } from '../components/TaskBits'
 
 const DEFAULT_START_HOUR = 6
@@ -10,9 +10,6 @@ function hourLabel(hour) {
   return new Date(2000, 0, 1, hour).toLocaleTimeString(undefined, { hour: 'numeric' })
 }
 
-// An hour-by-hour agenda for one day (6 AM-8 PM, widened if a task falls
-// outside that). On today, the current hour is marked so it's obvious what's
-// happening now versus what's coming up.
 function DayView({ date, now, tasksByDay, onOpenTask, onAddAt }) {
   const tasks = tasksByDay.get(dayKey(date)) ?? []
   const isToday = isSameDay(date, now)

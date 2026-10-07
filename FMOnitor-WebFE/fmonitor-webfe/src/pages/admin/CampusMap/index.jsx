@@ -8,23 +8,13 @@ import FilterNav from './panels/FilterNav'
 import AddStorageModal from './modals/AddStorageModal'
 import AddVenueModal from './modals/AddVenueModal'
 import AddCampusAreaModal from './modals/AddCampusAreaModal'
-import { CAMPUS_AREA_TYPES, FACILITY_TYPES } from './facilityTypes'
+import { CAMPUS_AREA_TYPES, FACILITY_TYPES } from './data/facilityTypes'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
-// Which backend endpoint/table each "kind" of add-or-edit target maps to -
-// used by the generic postItem/patchItem/deleteItemByKind helpers below so
-// there's one copy of the fetch plumbing instead of three near-identical ones.
 const ENDPOINTS = { area: '/api/campus-facilities', storage: '/api/campus-storages', venue: '/api/campus-venues' }
-// Storage/Venue rows don't carry their own `type` column server-side (unlike
-// CampusAreas, which does) - this is what tags them the same way the initial
-// fetch already does, so the rest of this folder can keep reading
-// `facility.type` generically.
 const TYPE_TAG = { storage: 'Storage', venue: 'Venue' }
 
-// Which existing `facilities` entries a given kind's id could possibly refer
-// to - ids aren't unique ACROSS tables, just within each one, so replacing/
-// removing an entry after an edit/delete has to check both id and kind.
 function belongsToKind(f, kind) {
   if (kind === 'storage') return f.type === 'Storage'
   if (kind === 'venue') return f.type === 'Venue'
@@ -35,44 +25,15 @@ function CampusMapContent() {
   const [campuses, setCampuses] = useState([])
   const [facilities, setFacilities] = useState([])
   const [loading, setLoading] = useState(true)
-  // Right-docked filter nav - closed by default, toggled by the floating
-  // location-pin button (see the bottom of this component's JSX). Only one
-  // of {this nav, MapCanvas's own details sidebar} is ever open at once -
-  // both dock to the same right edge, so showing both together read as a
-  // confusing "double navigation". Opening this one signals MapCanvas to
-  // close its selection (closeDetailsSignal); MapCanvas selecting something
-  // closes this one back (onSelectionActiveChange).
   const [navOpen, setNavOpen] = useState(false)
   const [closeDetailsSignal, setCloseDetailsSignal] = useState(0)
-  // Filters by facility TYPE (Building/Field/Grandstand/.../Venue/Storage),
-  // same as the original dropdown - not per individual facility. Everything
-  // visible by default, narrowed down by unchecking a type.
   const [visibleTypes, setVisibleTypes] = useState(() => new Set(FACILITY_TYPES))
-  // Add flow: click one of the three "Add ___" buttons (either the toolbar's
-  // own, or a "+ Add Storage/Venue" button inside a selected area's sidebar -
-  // see onAddEmbeddedItem below) to arm placement mode for that kind, click
-  // the map to capture a point (handled inside MapCanvas - see
-  // placementMode/onPlacementClick), then the matching modal opens with that
-  // point already set. Only one kind can be armed at a time.
   const [placingKind, setPlacingKind] = useState(null)
-  // Set only by the sidebar's embedded add flow - the area a new storage/
-  // venue is being added into is already known then, so the modal skips
-  // asking and just uses this directly instead of showing its dropdown.
   const [placingPresetAreaId, setPlacingPresetAreaId] = useState(null)
   const [pendingPlacement, setPendingPlacement] = useState(null)
-  // Edit flow: opened from AreaDetailsContent (via MapCanvas's onEditArea/
-  // onEditItem props) with the row already loaded - no map click involved.
   const [editingItem, setEditingItem] = useState(null)
 
   useEffect(() => {
-    // Four backend sources: tbl_campus_branches (each branch's boundary
-    // polygon), tbl_campus_facilities (every clickable location, each with its
-    // own real type), and tbl_campus_venues / tbl_campus_storages (each row
-    // pointing at the facility it's inside via facilityId). Facilities already
-    // carry their own `type`; venues/storage get one tagged on here as they
-    // come in - either way, the rest of this folder's rendering code
-    // (MapCanvas, facilityTypes, the details panel) just reads `facility.type`
-    // generically and never needs to know which endpoint a row came from.
     Promise.all([
       fetch(`${API_BASE_URL}/api/campus-branches`, { credentials: 'include' }).then((res) => (res.ok ? res.json() : [])),
       fetch(`${API_BASE_URL}${ENDPOINTS.area}`, { credentials: 'include' }).then((res) => (res.ok ? res.json() : [])),
@@ -99,8 +60,6 @@ function CampusMapContent() {
     [facilities, visibleTypes],
   )
 
-  // Only real campus areas (Building/Gate/Field/etc.) are valid "embedded in"
-  // targets for a new storage area or venue - not other venues or storage rows.
   const campusAreaOptions = useMemo(
     () => facilities.filter((f) => CAMPUS_AREA_TYPES.includes(f.type)).map((f) => ({ id: f.id, name: f.name })),
     [facilities],
@@ -187,23 +146,15 @@ function CampusMapContent() {
     return result
   }
 
-  // Toolbar buttons: toggle on/off, no area preset - which area it's
-  // embedded in (for storage/venue) gets picked via the modal's own dropdown.
   const startPlacing = (kind) => {
     setPlacingKind((prev) => (prev === kind ? null : kind))
     setPlacingPresetAreaId(null)
   }
-  // Sidebar's "+ Add Storage/Venue" buttons (see MapCanvas's onAddEmbeddedItem
-  // prop): always arms fresh rather than toggling, and locks in which area
-  // it's embedded into up front, since that's already known here.
   const startEmbeddedPlacing = (kind, areaId) => {
     setPlacingKind(kind)
     setPlacingPresetAreaId(areaId)
   }
 
-  // Same full-bleed footprint the real map will occupy once loaded (see the
-  // MapCanvas wrapper below) - keeps this from being a smaller centered box
-  // that then jumps/resizes into the full map area once data arrives.
   if (loading) {
     return (
       <div className="h-[calc(100vh-48px)] w-full lg:h-[calc(100vh-57px)]">
@@ -226,12 +177,6 @@ function CampusMapContent() {
 
   return (
     <div className="relative">
-      {/* Floating toggle - fixed in the same spot regardless of the nav's own
-          open/closed state (a FAB, not something that slides with the panel),
-          so it's always reachable. Sits above the details sidebar (z-20) too
-          - toggling the filter nav should work even while something's
-          selected, even though the nav itself is then hidden behind it
-          (both dock to the same right edge; the sidebar wins on top). */}
       <button
         type="button"
         onClick={() =>
@@ -263,13 +208,8 @@ function CampusMapContent() {
         campuses={campuses}
         facilities={visibleFacilities}
         allFacilities={facilities}
-        // The kind being placed ('area' | 'storage' | 'venue') or null.
         placementMode={placingKind}
-        // Storage/venue placement is locked to one facility (the sidebar's
-        // "+ Add" buttons) - its geofence limits where the pin may go.
         placementFacilityId={placingKind && placingKind !== 'area' ? placingPresetAreaId : null}
-        // "Move pin" save: just the new coordinates, through the same PATCH
-        // an edit uses - the backend re-checks the boundary/geofence.
         onMoveItem={(item, [lng, lat]) =>
           patchItem(item.type === 'Storage' ? 'storage' : item.type === 'Venue' ? 'venue' : 'area', item.id, {
             latitude: lat,

@@ -7,12 +7,8 @@ import {
   faLocationCrosshairs,
   faArrowRight,
 } from '@fortawesome/free-solid-svg-icons'
-import { FACILITY_TYPES, FACILITY_TYPE_STYLES } from '../facilityTypes'
+import { FACILITY_TYPES, FACILITY_TYPE_STYLES } from '../data/facilityTypes'
 
-// Placeholder only - there's no delivery/task backend yet (no table, no API).
-// This is just the UI shape (tabs + list) wired to a small hardcoded sample
-// so the section isn't empty; swap for a real fetch once a backend endpoint
-// exists, same pattern as facilities/campuses in index.jsx.
 const MOCK_TASKS = {
   ongoing: [
     { id: 'TKT-2025-0517-001', route: 'Qpav Mezzanine → Plaza Mayor', status: 'In Transit', time: '10:30 AM', dot: 'bg-amber-400' },
@@ -34,10 +30,6 @@ const TASK_STATUS_STYLES = {
   Delivered: 'bg-emerald-100 text-emerald-700',
 }
 
-// Flat, ring-based (not border-based) so the edge blends into the row
-// instead of reading as a separate boxed control, and the checkmark is
-// always mounted, just scaled/faded in - a smoother "pop" than the old
-// conditional-render snap.
 function Checkbox({ checked }) {
   return (
     <span
@@ -128,13 +120,6 @@ function FilterNav({ open, visibleTypes, onToggleType, onSelectAll, onClearAll, 
         </div>
       </div>
 
-      {/* pb-20 (not just a smaller gap) - the floating toggle button (a FAB,
-          fixed bottom-6 right-6 in index.jsx) sits in this same bottom-right
-          corner regardless of open/closed state, so this section needs real
-          clearance or its own "View All" button ends up underneath it. A
-          top border + its own top padding (rather than relying on the
-          scroll area's own pb-5 above) keeps this card visually separated
-          from the filter list instead of butting right up against it. */}
       <div className="border-t border-gray-100 px-5 pb-20 pt-5">
         <div className="rounded-xl border border-gray-200 bg-white pt-3">
           <div className="flex items-center justify-between px-3.5">
@@ -172,12 +157,6 @@ function FilterNav({ open, visibleTypes, onToggleType, onSelectAll, onClearAll, 
               <div key={task.id} className="flex gap-2">
                 <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${task.dot}`} />
                 <div className="min-w-0 flex-1">
-                  {/* Route (origin -> destination) is the emphasized text now,
-                      not the ticket id - that's what someone actually
-                      navigates by. On its own full-width line and wrapping
-                      (not truncating) so a long route never gets cut off -
-                      it used to compete for space with the status badge on
-                      one line, which is what forced the ellipsis. */}
                   <p className="break-words text-sm font-bold text-gray-900">{task.route}</p>
                   <div className="mt-1 flex items-center justify-between gap-2">
                     <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${TASK_STATUS_STYLES[task.status]}`}>

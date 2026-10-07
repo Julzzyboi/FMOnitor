@@ -1,12 +1,9 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faCalendarXmark, faPlus, faClockRotateLeft } from '@fortawesome/free-solid-svg-icons'
-import { formatRelativeDay } from '../dateUtils'
-import { isCompleted } from '../taskData'
+import { formatRelativeDay } from '../utils/dateUtils'
+import { isCompleted } from '../data/taskData'
 import { TaskCard } from '../components/TaskBits'
 
-// Right-hand "Ticket Schedule" from the reference: every ticket on the
-// selected day, in time order, with open work first and finished work below
-// a divider so the two never blur together.
 function TaskSchedulePanel({ selectedDate, now, tasks, onOpenTask, onViewDay, onAddTask, onViewCompleted }) {
   const active = tasks.filter((t) => !isCompleted(t))
   const done = tasks.filter(isCompleted)

@@ -1,22 +1,9 @@
-// Decorative trees for the campus map, driven by a hand-drawn GeoJSON file
-// (public/trees.geojson - draw in geojson.io, paste the export). Three shapes:
-//
-//   Point       properties.kind = "tree" (default)  -> one tree at that spot
-//   LineString  properties.kind = "row"             -> a tree every `spacing` m
-//   Polygon     properties.kind = "grove"           -> random fill at `density`
-//
-// Optional properties on any feature: size (scale, 1 = normal).
-// row:   spacing (m, default 8).   grove: density (0-1, default 0.5).
-// Everything is seeded per feature, so trees land in the same spots on every
-// load and editing one feature never reshuffles the others.
-
 const METERS_PER_DEG_LAT = 111320
 const DEFAULT_ROW_SPACING_M = 8
 const DEFAULT_GROVE_DENSITY = 0.5
-const GROVE_GRID_M = 5 // grove cell size; each cell gets at most one tree
+const GROVE_GRID_M = 5
 const MAX_TREES = 6000
 
-// Ray-casting point-in-polygon against one ring ([lng,lat] pairs).
 export function ringContains(ring, lng, lat) {
   let inside = false
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
@@ -27,7 +14,6 @@ export function ringContains(ring, lng, lat) {
   return inside
 }
 
-// mulberry32 - tiny seeded PRNG so scatter is stable across loads.
 function seededRandom(seed) {
   let a = seed >>> 0
   return () => {
@@ -48,11 +34,9 @@ function sizeOf(props) {
   return Number.isFinite(s) && s > 0 ? s : 1
 }
 
-// One tree per `spacing` meters along a polyline, with a hair of jitter so a
-// row reads as planted, not stamped.
 function treesAlongLine(coords, spacing, size, rand) {
   const out = []
-  let nextAt = 0 // distance into the current segment of the next tree
+  let nextAt = 0
   for (let i = 0; i < coords.length - 1; i++) {
     const [lng1, lat1] = coords[i]
     const [lng2, lat2] = coords[i + 1]
@@ -73,7 +57,7 @@ function treesAlongLine(coords, spacing, size, rand) {
       })
       d += spacing
     }
-    nextAt = d - len // spacing carries across vertices, so corners don't bunch up
+    nextAt = d - len
   }
   return out
 }
@@ -91,7 +75,6 @@ function treesInPolygon(rings, density, size, rand) {
   const out = []
   for (let lat = minLat; lat <= maxLat; lat += stepLat) {
     for (let lng = minLng; lng <= maxLng; lng += stepLng) {
-      // Same random numbers consumed per cell whether or not it's used.
       const jx = rand()
       const jy = rand()
       const keep = rand() < density
@@ -107,9 +90,6 @@ function treesInPolygon(rings, density, size, rand) {
   return out
 }
 
-// FeatureCollection -> [{ lng, lat, size, fixed }]. `fixed` marks trees the
-// admin placed by hand (Point) - the building check in MapCanvas never drops
-// those; generated row/grove trees can be.
 export function generateTrees(featureCollection) {
   const trees = []
   const features = featureCollection?.features ?? []
@@ -146,7 +126,6 @@ function disc(lng, lat, radiusM, mPerDegLng, sides = 8) {
 const TRUNK_COLOR = '#6b4423'
 const CANOPY_COLORS = ['#2f7d32', '#3a8f3d', '#2a6f2e']
 
-// Each tree = trunk + wide low canopy + narrow high canopy (a rounded cone).
 export function treesToGeoJSON(trees) {
   const features = []
   trees.forEach((t, i) => {

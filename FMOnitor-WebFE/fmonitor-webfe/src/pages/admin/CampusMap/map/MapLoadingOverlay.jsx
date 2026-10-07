@@ -1,10 +1,5 @@
 import logo from '../../../../assets/logo.png'
 
-// Same branded pulsing-logo + sliding-bar loading treatment as Login.jsx's
-// "Signing you in..." state - reused here for both loading phases this page
-// goes through (fetching campus/facility data, then Mapbox's own style+tiles
-// loading once MapCanvas mounts) so the whole thing reads as one continuous
-// loading experience instead of two different-looking loaders back to back.
 function MapLoadingOverlay({ label }) {
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-white">

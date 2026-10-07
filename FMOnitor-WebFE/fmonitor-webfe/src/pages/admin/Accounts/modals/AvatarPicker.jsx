@@ -1,10 +1,6 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faUser, faCamera } from '@fortawesome/free-solid-svg-icons'
 
-/**
- * A clickable avatar: the whole circle (not just the camera badge) opens the
- * file picker and previews the chosen image immediately.
- */
 function AvatarPicker({ avatarUrl, name, onChange }) {
   const handleFileChange = (e) => {
     const file = e.target.files?.[0]

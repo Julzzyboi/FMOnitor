@@ -4,7 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faChevronDown, faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons'
 import useClickOutside from '../../../../hooks/useClickOutside'
 import useFloatingPosition from '../../../../hooks/useFloatingPosition'
-import { WEEKDAYS, addMonths, dayKey, getMonthGrid, isSameDay, isSameMonth, startOfDay } from '../dateUtils'
+import { WEEKDAYS, addMonths, dayKey, getMonthGrid, isSameDay, isSameMonth, startOfDay } from '../utils/dateUtils'
 
 const FIRST_YEAR = 1900
 const LAST_YEAR = 2100
@@ -14,15 +14,11 @@ const MONTHS = Array.from({ length: 12 }, (_, i) => new Date(2000, i, 1).toLocal
 const SELECT_CLASS =
   'cursor-pointer rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-semibold text-gray-700 focus:border-[#fccb35] focus:outline-none focus:ring-2 focus:ring-[#fccb35]/30'
 
-// Same day-of-month in another month/year, clamped (Jan 31 -> Feb 28/29).
 function withMonthYear(date, month, year) {
   const lastDay = new Date(year, month + 1, 0).getDate()
   return new Date(year, month, Math.min(date.getDate(), lastDay))
 }
 
-// The calendar header's range label doubles as a jump-to-date picker: the
-// month/year dropdowns (1900-2100) move the calendar straight away, picking a
-// day selects it and closes. Days with tickets carry a dot.
 function DatePickerDropdown({ label, selectedDate, now, tasksByDay, onSelect }) {
   const [open, setOpen] = useState(false)
   const close = () => setOpen(false)

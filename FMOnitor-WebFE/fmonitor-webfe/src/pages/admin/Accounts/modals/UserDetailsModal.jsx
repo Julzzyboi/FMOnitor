@@ -1,6 +1,6 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faUser, faXmark, faPen, faBan, faTrash, faArrowRotateLeft, faTrashCan } from '@fortawesome/free-solid-svg-icons'
-import { ROLE_STYLES, STATUS_STYLES, daysUntilPurge, purgeDate } from '../userStyles'
+import { ROLE_STYLES, STATUS_STYLES, daysUntilPurge, purgeDate } from '../utils/userStyles'
 
 function DetailRow({ label, value }) {
   return (

@@ -1,12 +1,9 @@
-import { WEEKDAYS, dayKey, getMonthGrid, isSameDay, isSameMonth } from '../dateUtils'
-import { STATUS_STYLES, isOverdue } from '../taskData'
+import { WEEKDAYS, dayKey, getMonthGrid, isSameDay, isSameMonth } from '../utils/dateUtils'
+import { STATUS_STYLES, isOverdue } from '../data/taskData'
 import { TaskChip } from '../components/TaskBits'
 
 const MAX_CHIPS = 2
 
-// Phones get colored dots instead of chips - a 7-column grid at ~45px a cell
-// has no room for text, and the selected day's full list sits right below
-// in the Ticket Schedule panel anyway.
 function MonthView({ anchor, selectedDate, now, tasksByDay, onSelectDay, onOpenTask, onShowDay }) {
   const days = getMonthGrid(anchor)
 

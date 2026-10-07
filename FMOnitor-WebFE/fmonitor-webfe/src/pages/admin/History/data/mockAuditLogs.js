@@ -1,7 +1,3 @@
-// Placeholder data for the Activity History page until a real backend
-// endpoint exists. Shape mirrors what GET /api/audit-logs is expected to
-// return eventually — swap MOCK_AUDIT_LOGS for a real fetch when ready.
-
 const JOBS = [
   { venue: 'QPAV Mezzanine', equipment: 'Stanchions', category: 'MOVEMENTS' },
   { venue: 'Motorpool', equipment: 'Iwata Aircooler', category: 'MAINTENANCE' },
@@ -37,9 +33,6 @@ function buildMockAuditLogs() {
 
   return logs.map((log, index) => ({
     id: `LOG-${String(9921 - index).padStart(4, '0')}`,
-    // Kept as a real Date (not pre-formatted) - History.jsx formats it for
-    // display and needs the actual Date to sort correctly alongside real
-    // login logs.
     timestamp: log.timestamp,
     hauler: log.hauler,
     venue: log.venue,

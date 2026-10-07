@@ -10,14 +10,6 @@ import {
   faBoxesStacked,
 } from '@fortawesome/free-solid-svg-icons'
 
-// Same shape as Accounts/userStyles.js's ROLE_STYLES/STATUS_STYLES - an object
-// keyed by the backend's exact value, each holding what the UI needs to
-// render it. The first 8 match tbl_CampusAreas' real categories (the UST
-// GeoJSON dataset's areaType); Venue/Storage correspond to the two separate
-// dedicated tables (tbl_venues, tbl_storage) instead of a type column - see
-// index.jsx, which fetches all three sources and tags each row with this
-// same `type` field so the rest of this folder's rendering code doesn't need
-// to know which backend table/endpoint a given row actually came from.
 export const FACILITY_TYPE_STYLES = {
   Building: { icon: faBuilding, color: '#3b82f6', bgClass: 'bg-blue-500' },
   Field: { icon: faFutbol, color: '#22c55e', bgClass: 'bg-green-500' },
@@ -33,10 +25,6 @@ export const FACILITY_TYPE_STYLES = {
 
 export const FACILITY_TYPES = Object.keys(FACILITY_TYPE_STYLES)
 
-// The 8 real tbl_CampusAreas categories, as opposed to Venue/Storage (their
-// own dedicated tables). Used for e.g. the "which campus area is this
-// storage embedded in" dropdown, which should only list actual areas/
-// buildings, not other venues or storage rows.
 export const CAMPUS_AREA_TYPES = [
   'Building',
   'Field',
@@ -48,22 +36,11 @@ export const CAMPUS_AREA_TYPES = [
   'Court',
 ]
 
-// No real inventory backend yet (no counts, no line items anywhere in the
-// data model) - this cycles through a fixed, plausible-looking sequence
-// (not random) so a given facility shows the same stub count on every
-// render/reload instead of jumping around, until a real inventory endpoint
-// exists to replace this. Shared between FilterNav's per-row counts and
-// AreaDetailsContent's "Items Available" so the two stay consistent with
-// each other for the same facility.
 const MOCK_ITEM_COUNTS = [8, 5, 6, 5, 4, 5, 6, 4, 6, 4, 4, 4, 2]
 export function mockItemCount(id) {
   return MOCK_ITEM_COUNTS[id % MOCK_ITEM_COUNTS.length]
 }
 
-// Same idea for venues: no events backend exists yet, so each venue shows a
-// fixed stub from this sequence (stable per venue across reloads) until a
-// real events/scheduling endpoint replaces it. `active` is never more than
-// `scheduled`.
 const MOCK_EVENT_COUNTS = [
   { scheduled: 3, active: 1 },
   { scheduled: 5, active: 0 },

@@ -1,26 +1,3 @@
-// Transcribed directly from the physical "Event Inventory" count sheet -
-// one section per storage area, each row an item + its available count.
-// There's no backend inventory table/API yet (see index.jsx's top comment
-// for why this lives here as frontend-only state instead of a real fetch),
-// so this is the seed this page starts from.
-//
-// A few sheet rows are category headers with no count of their own,
-// immediately followed by size-specific rows that DO carry one (Scaffolding
-// -> 5ft/3ft; Tent Clothes/Tent Frame -> Small/Medium/Large 12x12/12x24/
-// 24x24) - folded into each item's own name here (e.g. "Scaffolding (5ft)")
-// rather than kept as a separate zero-count row, since a bare "5ft" or
-// "Small 12x12" item name is meaningless once split out of that grouping.
-//
-// The sheet's "Not working" column was blank for every row, so notWorking
-// is 0 across the board - a literal reading of the source, not a guess.
-//
-// The last four areas come from a second sheet - the FMO workshop sections'
-// own tools (Welding / Carpentry & Masonry / Plumbing / Painting), seeded
-// through `tool()` below as Non-Borrowable. That sheet does fill in "Not
-// working", so those counts carry over as-is.
-// Split by sheet: event-inventory areas hold lendable stock, the workshop
-// areas hold FMO's own tools. The Filters sidebar and the Add/Edit storage
-// dropdown both show these as two separate groups so the two never blur.
 export const BORROWABLE_STORAGE_AREAS = [
   'Qpav Mezzanine',
   'Qpav',
@@ -46,19 +23,9 @@ export const NON_BORROWABLE_STORAGE_AREAS = [
 
 export const STORAGE_AREAS = [...BORROWABLE_STORAGE_AREAS, ...NON_BORROWABLE_STORAGE_AREAS]
 
-// Shown in the Filters sidebar's Condition/Availability sections - the sheet
-// only ever tracked Available/Not Working counts, nothing per-item this
-// granular, so every seeded row defaults to Good/Borrowable rather than a
-// guessed-at real assessment. Real values can be set going forward through
-// the Add/Edit modal.
 export const CONDITIONS = ['Good', 'Fair', 'Poor', 'Damaged']
 export const AVAILABILITY_OPTIONS = ['Borrowable', 'Non-Borrowable']
 
-// Real photos, living directly in public/images and named after the item
-// label they show (spaces/parens and all, hence the encodeURI). Only items
-// with an actual matching photo there get one passed through `item()`'s
-// `photo` arg below; everything else keeps photoUrl '' and falls back to the
-// placeholder icon.
 function photoPath(filename) {
   return encodeURI(`/images/${filename}`)
 }
@@ -71,16 +38,12 @@ function item(location, name, available, notWorking = 0, photo = null, availabil
     name,
     available,
     notWorking,
-    // Every unit marked "Not working" (none working) reads as Damaged
-    // straight off the sheet; anything with a working unit stays Good.
     condition: available === 0 && notWorking > 0 ? 'Damaged' : 'Good',
     availability,
     photoUrl: photo ? photoPath(photo) : '',
   }
 }
 
-// Workshop tools - kept by each FMO section for its own jobs, not lent out.
-// "1 set" sheet counts are stored as 1, with "(Set)" in the name instead.
 function tool(location, name, available, notWorking = 0) {
   return item(location, name, available, notWorking, null, 'Non-Borrowable')
 }
@@ -182,9 +145,6 @@ export const INITIAL_EQUIPMENT = [
   tool(WELDING, 'Telescopic Ladder', 1),
   tool(WELDING, 'Desktop', 1),
 
-  // The sheet lists this area as two blocks split by a blank row (carpentry
-  // tools, then masonry ones) - a repeat item across both blocks (Hilti
-  // Drill 2 + 1, Blower 1 + 1) is merged into one card with the total.
   tool(CARPENTRY, 'Table Saw', 0, 2),
   tool(CARPENTRY, 'Band Saw Cut Off Machine', 0, 3),
   tool(CARPENTRY, 'Portable Jig Saw', 4),
@@ -205,8 +165,6 @@ export const INITIAL_EQUIPMENT = [
   tool(CARPENTRY, 'Flashlight', 2),
   tool(CARPENTRY, 'Desktop', 1),
 
-  // Same merge here: the sheet lists working and not-working units of the
-  // K50 De-clogging Machine and Hilti Impact Drill as separate rows.
   tool(PLUMBING, 'Stanley Rechargeable Drill', 1),
   tool(PLUMBING, 'Hilti Impact Drill', 1, 1),
   tool(PLUMBING, 'Hilti Hammer Drill', 1),

@@ -5,10 +5,6 @@ import { faImage, faXmark, faSpinner } from '@fortawesome/free-solid-svg-icons'
 const MAX_DIMENSION = 1600
 const JPEG_QUALITY = 0.82
 
-// Downscales/re-compresses the chosen image to a max-1600px-edge JPEG before
-// handing back its base64 data URL - a straight-off-a-phone photo can be
-// several MB, and that would otherwise go straight into the request body and
-// the database row (photoUrl columns) uncompressed.
 function resizeImageFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -39,16 +35,6 @@ function resizeImageFile(file) {
   })
 }
 
-// A file-picker that stores the chosen image as a base64 data URL - same
-// convention as Accounts/AvatarPicker.jsx, just laid out as a labeled form
-// field (with a preview + remove/change controls) instead of a circular
-// avatar. `value` is either a data URL, an empty string (explicitly
-// removed), or null/undefined (never set). `previewSize` sets the preview/
-// dropzone box's own size classes - defaults to the original short-and-wide
-// box every other caller (CampusMap's Add Storage/Venue/Area modals) already
-// uses; Inventory's EquipmentModal passes a bigger square one instead.
-// `labelClassName` lets a caller match this label's size to its own other
-// field labels (EquipmentModal's are smaller than the original default).
 function PhotoFileInput({
   label = 'Photo (optional)',
   value,
@@ -62,7 +48,7 @@ function PhotoFileInput({
 
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0]
-    e.target.value = '' // allow re-picking the exact same file again later
+    e.target.value = ''
     if (!file) return
     setError(null)
     setBusy(true)

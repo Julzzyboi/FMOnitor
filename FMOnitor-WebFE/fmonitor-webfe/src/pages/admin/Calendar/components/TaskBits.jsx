@@ -1,7 +1,7 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faCheck, faClock, faLocationDot, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons'
-import { STATUS_STYLES, TYPE_ICONS, isCompleted, isOverdue } from '../taskData'
-import { formatTime } from '../dateUtils'
+import { STATUS_STYLES, TYPE_ICONS, isCompleted, isOverdue } from '../data/taskData'
+import { formatTime } from '../utils/dateUtils'
 
 export function StatusPill({ status }) {
   return (
@@ -20,9 +20,6 @@ export function OverduePill() {
   )
 }
 
-// One-line event chip inside a month/week cell. Completed tickets fade to
-// gray (Delivered gets a check, Cancelled a strike-through) so the still-open
-// work is what stands out on the grid.
 export function TaskChip({ task, now, onOpen }) {
   const overdue = isOverdue(task, now)
   return (
@@ -43,7 +40,6 @@ export function TaskChip({ task, now, onOpen }) {
   )
 }
 
-// The fuller card used by the Ticket Schedule panel and the week/day views.
 export function TaskCard({ task, now, onOpen, showDate = false, compact = false }) {
   const completed = isCompleted(task)
   const overdue = isOverdue(task, now)

@@ -1,7 +1,4 @@
-// validation sa equipment for inventory -yuji
 export const NAME_MAX = 100;
-
-
 
 export function validateEquipment({ name, available, notWorking }) {
     const errors = {};

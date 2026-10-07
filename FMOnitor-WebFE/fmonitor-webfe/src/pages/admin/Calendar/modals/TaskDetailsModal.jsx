@@ -8,8 +8,8 @@ import {
   faRotateLeft,
   faCircleCheck,
 } from '@fortawesome/free-solid-svg-icons'
-import { NEXT_STATUS, TYPE_ICONS, isCompleted, isOverdue, taskEnd } from '../taskData'
-import { formatDateTime, formatDayLabel, formatTime } from '../dateUtils'
+import { NEXT_STATUS, TYPE_ICONS, isCompleted, isOverdue, taskEnd } from '../data/taskData'
+import { formatDateTime, formatDayLabel, formatTime } from '../utils/dateUtils'
 import { OverduePill, StatusPill } from '../components/TaskBits'
 
 function DetailRow({ label, value }) {
@@ -21,10 +21,6 @@ function DetailRow({ label, value }) {
   )
 }
 
-// Opened from any chip/card/row. The primary button walks the ticket one
-// step forward (Scheduled -> Picked Up -> In Transit -> Delivered); a
-// finished ticket can be reopened instead. Laid out like Inventory's
-// EquipmentDetailsModal.
 function TaskDetailsModal({ task, now, onClose, onEdit, onDelete, onSetStatus }) {
   const completed = isCompleted(task)
   const next = NEXT_STATUS[task.status]

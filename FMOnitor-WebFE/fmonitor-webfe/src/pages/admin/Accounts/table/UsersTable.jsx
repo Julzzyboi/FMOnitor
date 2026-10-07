@@ -2,7 +2,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faUser } from '@fortawesome/free-solid-svg-icons'
 import RowActionsMenu from './RowActionsMenu'
 import UserCard from './UserCard'
-import { ROLE_STYLES, STATUS_STYLES, daysUntilPurge, purgeDate } from '../userStyles'
+import { ROLE_STYLES, STATUS_STYLES, daysUntilPurge, purgeDate } from '../utils/userStyles'
 
 const COLUMNS = ['Image', 'Name', 'Email', 'Role', 'Status', 'Date Created', 'Action']
 
@@ -17,7 +17,6 @@ function UsersTable({ users, onRowClick, onEdit, onDisable, onDelete, onRestore,
 
   return (
     <>
-      {/* mobile: stacked cards */}
       <div className="md:hidden">
         {users.map((user) => (
           <UserCard
@@ -33,7 +32,6 @@ function UsersTable({ users, onRowClick, onEdit, onDisable, onDelete, onRestore,
         ))}
       </div>
 
-      {/* desktop: table */}
       <div className="hidden overflow-x-auto rounded-t-xl md:block">
         <table className="w-full text-left text-sm">
           <thead>

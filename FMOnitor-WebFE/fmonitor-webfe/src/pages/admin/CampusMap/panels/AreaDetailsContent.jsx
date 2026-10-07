@@ -13,14 +13,8 @@ import {
   faPlus,
   faBoxOpen,
 } from '@fortawesome/free-solid-svg-icons'
-import { CAMPUS_AREA_TYPES, FACILITY_TYPE_STYLES, mockEventCounts, mockItemCount } from '../facilityTypes'
+import { CAMPUS_AREA_TYPES, FACILITY_TYPE_STYLES, mockEventCounts, mockItemCount } from '../data/facilityTypes'
 
-// What each kind of place shows under its description:
-//   location -> how many storage areas and venues it holds
-//   storage  -> total inventories kept there
-//   venue    -> scheduled and currently active events
-// Inventory and events have no backend yet - those numbers are the stubs
-// from facilityTypes.js (mockItemCount / mockEventCounts) until they do.
 function detailStats(item, { storageCount, venueCount } = {}) {
   if (item.type === 'Storage') {
     return [{ label: 'Total Inventories', value: mockItemCount(item.id) }]
@@ -59,10 +53,6 @@ function DetailRow({ label, value }) {
   )
 }
 
-// One details layout for whatever's currently being viewed - the location
-// itself, or a storage/venue drilled into from it: picture, name,
-// description, then that kind's own counts (`stats`, see detailStats) and an
-// optional call to action. `onEdit`/`onDelete` act on whichever `item` is.
 function LocationDetailsBody({ item, description, stats, action, editLabel, onEdit, onMove, onDelete, deleteError }) {
   return (
     <div>
@@ -100,8 +90,6 @@ function LocationDetailsBody({ item, description, stats, action, editLabel, onEd
           <FontAwesomeIcon icon={faPen} className="h-3 w-3" />
           {editLabel}
         </button>
-        {/* Starts dragging this item's pin to a new spot on the map (see
-            MapCanvas's `moving` state). */}
         <button
           type="button"
           onClick={onMove}
@@ -124,27 +112,6 @@ function LocationDetailsBody({ item, description, stats, action, editLabel, onEd
   )
 }
 
-// The only kind of thing markers can trigger anymore - storage/venue markers
-// aren't independently interactive, so there's no separate "facility
-// details" panel design; their details only ever show here, nested inside
-// whichever campus area they're embedded in. `allFacilities` is the full,
-// UNFILTERED list (not whatever the map's type filter currently shows) so
-// the embedded counts/lists here stay correct even if Storage/Venue are
-// unchecked in that filter.
-//
-// `subItem`/`onSubItemChange` are lifted up to MapCanvas (not local state
-// here), only so MapCanvas can key its remount correctly - both this
-// component's own area view and its subItem view now share one "Location
-// Details" header, so MapCanvas's own DetailsSidebar header no longer needs
-// to know which is active.
-//
-// onEditArea/onDeleteArea act on `area` itself; onEditItem/onDeleteItem act
-// on whichever embedded storage/venue row is currently drilled into
-// (`subItem`). Delete calls resolve { ok, message } same as the add/edit
-// modals - a rejection (e.g. an area that still has items embedded) shows
-// inline instead of silently doing nothing. onAddItem(kind) arms the map's
-// placement mode for a new storage/venue already locked to this area - see
-// MapCanvas's onAddEmbeddedItem prop.
 function AreaDetailsContent({
   area,
   allFacilities,
@@ -264,8 +231,6 @@ function AreaDetailsContent({
                 No {activeTab.toLowerCase()} areas embedded here yet.
               </p>
             )}
-            {/* Picking one opens its details and glides the map to its spot
-                (see MapCanvas's subItem effects). */}
             {items.map((item) => {
               const style = FACILITY_TYPE_STYLES[item.type]
               return (
@@ -275,7 +240,6 @@ function AreaDetailsContent({
                   onClick={() => onSubItemChange(item)}
                   className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm text-gray-700 transition-colors duration-150 hover:bg-gray-50"
                 >
-                  {/* Same color and icon as the item's tag on the map. */}
                   <span
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm"
                     style={{ backgroundColor: style.color }}

@@ -1,8 +1,6 @@
-import { dayKey, getWeekDays, isSameDay } from '../dateUtils'
+import { dayKey, getWeekDays, isSameDay } from '../utils/dateUtils'
 import { TaskCard } from '../components/TaskBits'
 
-// Seven columns from md up; below that the days stack as rows, each with its
-// own task list, so nothing gets squeezed into an unreadable sliver.
 function WeekView({ anchor, selectedDate, now, tasksByDay, onSelectDay, onOpenTask }) {
   const days = getWeekDays(anchor)
 

@@ -3,18 +3,6 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faXmark } from '@fortawesome/free-solid-svg-icons'
 import PhotoFileInput from '../../../../components/common/PhotoFileInput'
 
-// Shown right after a point's been clicked on the map (see index.jsx's
-// placement-mode flow) in create mode, or directly from a storage item's
-// details (see AreaDetailsContent) in edit mode - `editItem` presence is what
-// distinguishes the two: no map click/location needed for an edit, since
-// moving an existing storage area's position isn't supported here.
-// `presetCampusAreaId` is set when this was armed from inside an already-
-// selected area's sidebar (its own "+ Add Storage" button) - the area's
-// already known then, so the dropdown below is replaced with a fixed label
-// instead of asking again. `initialName` is whatever real building/POI
-// Mapbox's own map data already had at the clicked point (see MapCanvas's
-// detectPlaceNameAt) - pre-fills the field instead of leaving it blank,
-// still fully editable.
 function AddStorageModal({ lngLat, campusAreaOptions, editItem, presetCampusAreaId, initialName, onCancel, onSubmit }) {
   const isEdit = !!editItem
   const fixedArea = !isEdit && presetCampusAreaId != null
@@ -27,9 +15,6 @@ function AddStorageModal({ lngLat, campusAreaOptions, editItem, presetCampusArea
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
 
-  // onSubmit resolves { ok: true } or { ok: false, message } - a rejected
-  // request (e.g. the point falls outside the campus boundary) stays open
-  // with the reason shown, rather than silently closing either way.
   const handleSubmit = async (event) => {
     event.preventDefault()
     if (!name.trim() || !campusAreaId) return

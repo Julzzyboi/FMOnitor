@@ -6,14 +6,6 @@ import { AuthProvider, useAuth } from '../../context/AuthContext'
 
 function AdminLayoutContent() {
   const [menuOpen, setMenuOpen] = useState(false)
-  // Two separate flags on purpose: "have we heard back yet" vs "was it a yes" -
-  // collapsing these into one would make "still checking" indistinguishable
-  // from "checked and it's a no" and briefly render this shell as if logged
-  // in either way. Without this check at all, this whole shell (sidebar,
-  // topbar, dashboard content) would render unconditionally the instant this
-  // route is reached, regardless of whether the session behind it is
-  // actually still valid - the reactive 401 handling in sessionGuard.js only
-  // catches this AFTER something fetches and fails, not before.
   const { checked, authorized } = useAuth()
 
   if (!checked) {
@@ -42,10 +34,6 @@ function AdminLayoutContent() {
   )
 }
 
-// AuthProvider lives here, not in App.jsx - only routes under this layout
-// are ever behind a login, so this is the one place a single /api/user fetch
-// can cover the whole authenticated section (sidebar, topbar, every admin
-// page including the role-gated ones) without also running on /.
 function AdminLayout() {
   return (
     <AuthProvider>

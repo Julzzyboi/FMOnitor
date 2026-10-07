@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faMagnifyingGlass, faClockRotateLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons'
 import Pagination from '../../../../components/common/Pagination'
-import { COMPLETED_STATUSES, TASK_LOCATIONS, TASK_TYPES, TYPE_ICONS, isCompleted, matchesSearch } from '../taskData'
-import { addDays, formatDate, formatTime, fromInputValues, startOfDay, toDateInputValue } from '../dateUtils'
+import { COMPLETED_STATUSES, TASK_LOCATIONS, TASK_TYPES, TYPE_ICONS, isCompleted, matchesSearch } from '../data/taskData'
+import { addDays, formatDate, formatTime, fromInputValues, startOfDay, toDateInputValue } from '../utils/dateUtils'
 import { StatusPill } from '../components/TaskBits'
 
 const PAGE_SIZE = 8
@@ -27,9 +27,6 @@ function FilterField({ label, children }) {
   )
 }
 
-// Finished work (Delivered + Cancelled) with its own search/filters, kept
-// apart from the calendar's own filters - browsing history shouldn't change
-// what the schedule above shows. Date range filters on the scheduled day.
 function CompletedTasks({ tasks, now, onOpenTask, sectionRef }) {
   const [search, setSearch] = useState('')
   const [preset, setPreset] = useState('30')
@@ -65,7 +62,7 @@ function CompletedTasks({ tasks, now, onOpenTask, sectionRef }) {
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase()
     const fromDate = from ? fromInputValues(from) : null
-    const toDate = to ? addDays(fromInputValues(to), 1) : null // inclusive of the whole end day
+    const toDate = to ? addDays(fromInputValues(to), 1) : null
     const result = completed.filter((t) => {
       if (fromDate && t.scheduledAt < fromDate) return false
       if (toDate && t.scheduledAt >= toDate) return false
@@ -201,7 +198,6 @@ function CompletedTasks({ tasks, now, onOpenTask, sectionRef }) {
         </div>
       ) : (
         <>
-          {/* Table from md up, stacked cards below - same split as Accounts. */}
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead>

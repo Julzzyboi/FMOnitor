@@ -10,9 +10,6 @@ function DetailRow({ label, value }) {
   )
 }
 
-// Read-only view opened by clicking an inventory card - Edit hands off to
-// the same EquipmentModal form as before, Delete goes through a confirm
-// step in the parent. Laid out like Accounts' UserDetailsModal.
 function EquipmentDetailsModal({ item, onClose, onEdit, onDelete }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-16 lg:py-20">

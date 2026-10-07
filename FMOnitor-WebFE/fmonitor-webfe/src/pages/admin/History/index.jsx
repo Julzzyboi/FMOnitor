@@ -11,9 +11,9 @@ import {
   faArrowUpWideShort,
   faSpinner,
 } from '@fortawesome/free-solid-svg-icons'
-import AdminPageShell from '../../components/layout/AdminPageShell'
-import MOCK_AUDIT_LOGS from '../../data/mockAuditLogs'
-import { HISTORY_LOG_TYPES } from '../../constants/navItems'
+import AdminPageShell from '../../../components/layout/AdminPageShell'
+import MOCK_AUDIT_LOGS from './data/mockAuditLogs'
+import { HISTORY_LOG_TYPES } from '../../../constants/navItems'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 const PAGE_SIZE = 10
@@ -32,12 +32,6 @@ function pad(n) {
   return String(n).padStart(2, '0')
 }
 
-// 12-hour display format (e.g. "2026-08-30 11:51:15 PM"). The date portion
-// stays zero-padded/ISO-ish for readability, but 12-hour time with an AM/PM
-// suffix isn't safely sortable as plain text - "12:00 AM" (midnight) sorts
-// AFTER "01-11 AM" alphabetically even though it comes first chronologically.
-// So this is for DISPLAY only; sortKey (a real epoch number) is what the
-// table actually sorts by.
 function formatTimestamp12h(date) {
   const hours24 = date.getHours()
   const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12
@@ -48,9 +42,6 @@ function formatTimestamp12h(date) {
   )
 }
 
-// Real login logs and the (still mock, until a real feature exists) equipment
-// logs have genuinely different shapes - this maps both into the same
-// Login ID / User / Email / Role / Action / Timestamp row shape.
 function mapAuditLog(log) {
   return {
     id: log.id,
@@ -95,9 +86,6 @@ function History() {
 
   useEffect(() => {
     setLoading(true)
-    // TODO: the equipment-movement side (hauler/venue/equipment) is still mock
-    // data until that feature actually exists on the backend - only login
-    // activity below is real.
     fetch(`${API_BASE_URL}/api/login-logs`, { credentials: 'include' })
       .then((res) => (res.ok ? res.json() : []))
       .then((loginLogs) => {
@@ -158,7 +146,6 @@ function History() {
         </div>
       ) : (
         <>
-          {/* Filter tabs */}
           <div className="mt-6 flex flex-wrap gap-2">
             {HISTORY_LOG_TYPES.map(({ key, label }) => (
               <button
@@ -176,7 +163,6 @@ function History() {
             ))}
           </div>
 
-          {/* Search / refine / sort bar */}
           <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
             <FontAwesomeIcon icon={faMagnifyingGlass} className="h-4 w-4 text-gray-400" />
             <input
@@ -204,7 +190,6 @@ function History() {
             </button>
           </div>
 
-          {/* Table */}
           <div className="mt-4 overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead>
@@ -259,7 +244,6 @@ function History() {
             </table>
           </div>
 
-          {/* Pagination */}
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500">
             <p>
               Showing {pagedLogs.length} of {filteredLogs.length} records

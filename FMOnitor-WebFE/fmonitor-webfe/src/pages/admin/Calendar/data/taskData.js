@@ -1,20 +1,11 @@
 import { faTruck, faRotateLeft, faPeopleCarryBox, faArrowRightArrowLeft } from '@fortawesome/free-solid-svg-icons'
-import { BORROWABLE_STORAGE_AREAS } from '../Inventory/inventoryData'
-import { addDays, dayKey } from './dateUtils'
-
-// Placeholder only - there's no delivery/task backend yet (no table, no API),
-// same as CampusMap/FilterNav's "Active Delivery Tickets" these are modeled
-// on: TKT-YYYY-MMDD-NNN ids, an origin -> destination route, and the same
-// Picked Up / In Transit / Delivered statuses. Everything lives in the
-// Calendar page's local state; swap generateTasks() for a real fetch once an
-// endpoint exists and the rest of the page barely has to change.
+import { BORROWABLE_STORAGE_AREAS } from '../../Inventory/data/inventoryData'
+import { addDays, dayKey } from '../utils/dateUtils'
 
 export const ACTIVE_STATUSES = ['Scheduled', 'Picked Up', 'In Transit']
 export const COMPLETED_STATUSES = ['Delivered', 'Cancelled']
 export const TASK_STATUSES = [...ACTIVE_STATUSES, ...COMPLETED_STATUSES]
 
-// pill = status badge, chip = calendar event chip, dot = small marker.
-// Picked Up / In Transit / Delivered match CampusMap's TASK_STATUS_STYLES.
 export const STATUS_STYLES = {
   Scheduled: {
     pill: 'bg-amber-100 text-amber-700',
@@ -43,7 +34,6 @@ export const STATUS_STYLES = {
   },
 }
 
-// The next step a ticket moves to from each active status.
 export const NEXT_STATUS = {
   Scheduled: 'Picked Up',
   'Picked Up': 'In Transit',
@@ -58,8 +48,6 @@ export const TYPE_ICONS = {
   Transfer: faArrowRightArrowLeft,
 }
 
-// Locations are the real storage areas from the inventory count sheet plus
-// the campus venues equipment usually gets hauled to.
 const VENUES = ['Plaza Mayor', 'Quad Pavilion', 'Benavides Park', 'Main Building Lobby', 'Medicine Auditorium']
 export const TASK_LOCATIONS = [...new Set([...BORROWABLE_STORAGE_AREAS, 'FMO Garage', ...VENUES])].sort()
 
@@ -74,7 +62,6 @@ export function taskEnd(task) {
   return new Date(task.scheduledAt.getTime() + task.durationMins * 60000)
 }
 
-// Still active, but its whole time slot has already passed.
 export function isOverdue(task, now) {
   return !isCompleted(task) && taskEnd(task) < now
 }
@@ -92,10 +79,6 @@ export function nextTicketId(tasks, date) {
   return `${prefix}${String(Math.max(0, ...used) + 1).padStart(3, '0')}`
 }
 
-// Four placeholder tickets, laid out relative to `now` so the calendar always
-// has something on "today", something upcoming and a completed one.
-// The first three are the exact tickets CampusMap/FilterNav shows, so both
-// pages agree.
 export function generateTasks(now) {
   const tasks = []
   const at = (dayOffset, hour, minute = 0) => {

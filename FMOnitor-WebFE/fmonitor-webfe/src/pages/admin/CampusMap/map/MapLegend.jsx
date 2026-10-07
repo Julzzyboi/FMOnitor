@@ -11,7 +11,7 @@ import {
   faMapLocationDot,
   faFont,
 } from '@fortawesome/free-solid-svg-icons'
-import { FACILITY_TYPES, FACILITY_TYPE_STYLES } from '../facilityTypes'
+import { FACILITY_TYPES, FACILITY_TYPE_STYLES } from '../data/facilityTypes'
 
 const NAV_ITEMS = [
   {
@@ -58,10 +58,6 @@ function LegendPin({ type }) {
   )
 }
 
-// Bottom-left so it never sits under Mapbox zoom (top-left), the filter FAB
-// (bottom-right), or the details sidebar (right edge). Raised off the
-// Mapbox logo with bottom-12. Collapsed by default so the map stays the
-// focus; the same pin glyphs as MapCanvas so the guide matches the canvas.
 function MapLegend() {
   const [open, setOpen] = useState(false)
 

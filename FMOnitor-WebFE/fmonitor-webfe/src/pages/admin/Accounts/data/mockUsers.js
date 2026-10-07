@@ -1,9 +1,5 @@
 export const ROLES = ['Superadmin', 'Admin', 'Hauler', 'Requestor']
-// All possible status values a user can have.
 export const STATUSES = ['Active', 'Inactive', 'Unregistered', 'Disabled', 'Deleted']
-// Disabled/Deleted aren't shown in the Status filter dropdown — they're reached
-// through their own dedicated toggle buttons instead, since those users are
-// hidden from the table by default.
 export const FILTERABLE_STATUSES = ['Active', 'Inactive', 'Unregistered']
 
 const FIRST_NAMES = [
@@ -20,7 +16,6 @@ const LAST_NAMES = [
   'Aguilar', 'Ramos', 'Pascual', 'Gutierrez',
 ]
 
-// Deterministic pseudo-random generator so the mock dataset stays stable across renders.
 function seededRandom(seed) {
   let value = seed
   return () => {
@@ -57,8 +52,6 @@ export const MOCK_USERS = Array.from({ length: USER_COUNT }, (_, i) => {
   const name = `${firstName} ${lastName}`
   const email = `${firstName.toLowerCase()}.${lastName.toLowerCase().replace(/\s+/g, '')}.cics@ust.edu.ph`
 
-  // Guarantee at least one of each role/status near the top of the list so filters
-  // are demonstrable without having to page through the whole mock dataset.
   const role =
     i === 0
       ? 'Superadmin'

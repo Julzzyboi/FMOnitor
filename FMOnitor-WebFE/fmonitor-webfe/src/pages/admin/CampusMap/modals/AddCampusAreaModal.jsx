@@ -1,21 +1,9 @@
 import { useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faXmark } from '@fortawesome/free-solid-svg-icons'
-import { CAMPUS_AREA_TYPES } from '../facilityTypes'
+import { CAMPUS_AREA_TYPES } from '../data/facilityTypes'
 import PhotoFileInput from '../../../../components/common/PhotoFileInput'
 
-// Same create-vs-edit split as AddStorageModal/AddVenueModal (`editItem`
-// presence decides which), but for a campus area itself - name, type, and
-// which campus branch it belongs to (campusOptions is almost always a single
-// entry today, but the form still lets you pick if there's ever more than
-// one). Moving an existing area's pin isn't supported here either.
-// `initialName` is whatever real building/POI Mapbox's own map data already
-// had at the clicked point (see MapCanvas's detectPlaceNameAt) - pre-fills
-// the field instead of leaving it blank, still fully editable.
-// `detectedShape` ({ footprint, height } or null) is the Mapbox building at
-// the clicked point (see MapCanvas's detectBuildingShapeAt). Height starts at
-// the map's own value; changing it marks the height as a manual correction
-// (heightOverride), which makes the map draw its own block at that height.
 function AddCampusAreaModal({ lngLat, campusOptions, editItem, initialName, detectedShape, onCancel, onSubmit }) {
   const isEdit = !!editItem
   const [name, setName] = useState(editItem?.name ?? initialName ?? '')
@@ -49,8 +37,6 @@ function AddCampusAreaModal({ lngLat, campusOptions, editItem, initialName, dete
       payload.latitude = lngLat[1]
       payload.longitude = lngLat[0]
       payload.height = heightValue
-      // No building at the point -> omitted, and the backend stores a small
-      // square around the pin instead.
       if (detectedShape) payload.footprint = detectedShape.footprint
     }
     const result = await onSubmit(payload)

@@ -11,7 +11,7 @@ import AddUserModal from './modals/AddUserModal'
 import UserDetailsModal from './modals/UserDetailsModal'
 import ConfirmModal from './modals/ConfirmModal'
 import Toast from './components/Toast'
-import { ROLES, FILTERABLE_STATUSES } from './mockUsers'
+import { ROLES, FILTERABLE_STATUSES } from './data/mockUsers'
 import { useAuth } from '../../../context/AuthContext'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
@@ -23,8 +23,6 @@ function formatDate(isoString) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-// Backend field names (googleSub/pictureUrl/createdAt) don't match what this
-// page already expects (avatarUrl/dateCreated) - map once at the fetch boundary.
 function mapAccount(account) {
   return {
     id: account.id,
@@ -79,14 +77,14 @@ function AccountsContent() {
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('All')
   const [statusFilter, setStatusFilter] = useState('All')
-  const [viewMode, setViewMode] = useState('normal') // 'normal' | 'disabled' | 'deleted'
+  const [viewMode, setViewMode] = useState('normal')
   const [page, setPage] = useState(1)
 
   const [editingUser, setEditingUser] = useState(null)
   const [viewingUser, setViewingUser] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
-  const [pendingAction, setPendingAction] = useState(null) // { type: 'add'|'save'|'disable'|'delete', payload }
-  const [toast, setToast] = useState(null) // { message, type }
+  const [pendingAction, setPendingAction] = useState(null)
+  const [toast, setToast] = useState(null)
 
   useEffect(() => {
     if (!toast) return
@@ -154,7 +152,6 @@ function AccountsContent() {
     setPage(1)
   }
 
-  // --- request handlers: open the confirm modal instead of acting immediately ---
   const requestEdit = (user) => {
     setViewingUser(null)
     setEditingUser(user)
@@ -167,9 +164,6 @@ function AccountsContent() {
 
   const cancelPendingAction = () => setPendingAction(null)
 
-  // Shared by Disable, Delete, and Restore - all three are the exact same
-  // request (persist a new status for one account), just with a different
-  // target status and success message.
   const updateStatus = async (user, newStatus, { onSuccess } = {}) => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/accounts/${user.id}/status`, {
@@ -214,7 +208,6 @@ function AccountsContent() {
           })
 
           if (res.status === 403) {
-            // Applies to every email in this batch the same way - no point continuing the loop.
             setToast({ message: 'Only Superadmins can invite new users', type: 'danger' })
             setPendingAction(null)
             return
@@ -289,8 +282,6 @@ function AccountsContent() {
           const body = await res.json().catch(() => null)
           setToast({ message: body?.message || 'Failed to permanently delete this account', type: 'danger' })
         } else {
-          // Unlike Delete/Disable/Restore, the row is actually gone server-side
-          // now - remove it from local state entirely rather than updating its status.
           setUsers((prev) => prev.filter((u) => u.id !== payload.id))
           setViewingUser(null)
           setToast({ message: 'Account permanently deleted', type: 'danger' })
@@ -303,9 +294,6 @@ function AccountsContent() {
     setPendingAction(null)
   }
 
-  // Restore is a lightweight recovery action, no confirmation needed - always
-  // brings the account back to Active (tbl_users has no "previous status"
-  // column to return it to something more specific like Disabled).
   const handleRestore = (user) => {
     updateStatus(user, 'Active', {
       onSuccess: () => setToast({ message: 'User restored successfully', type: 'success' }),

@@ -1,12 +1,6 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faCircleCheck, faTriangleExclamation, faBan } from '@fortawesome/free-solid-svg-icons'
 
-// Icon badges (top of the modal) keep their color per variant - that's just
-// a status indicator, not a button. The confirm BUTTON itself only stays
-// colored for `success` (Save/Invite's own confirmation, matching those
-// forms' already-yellow Save/Invite buttons) - warning/danger (Disable,
-// Delete, Delete Permanently) go plain, same as the equivalent buttons in
-// UserDetailsModal.
 const VARIANTS = {
   success: {
     icon: faCircleCheck,

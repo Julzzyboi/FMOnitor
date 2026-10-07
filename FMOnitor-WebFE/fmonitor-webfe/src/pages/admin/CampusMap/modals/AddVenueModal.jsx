@@ -3,16 +3,6 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faXmark } from '@fortawesome/free-solid-svg-icons'
 import PhotoFileInput from '../../../../components/common/PhotoFileInput'
 
-// Mirrors AddStorageModal exactly - a venue is embedded in a campus area the
-// same way a storage area is, just its own dedicated table/type. `editItem`
-// presence means edit mode: no map click/location needed, moving an existing
-// venue's position isn't supported here. `presetCampusAreaId` is set when
-// this was armed from inside an already-selected area's sidebar (its own
-// "+ Add Venue" button) - the area's already known then, so the dropdown
-// below is replaced with a fixed label instead of asking again. `initialName`
-// is whatever real building/POI Mapbox's own map data already had at the
-// clicked point (see MapCanvas's detectPlaceNameAt) - pre-fills the field
-// instead of leaving it blank, still fully editable.
 function AddVenueModal({ lngLat, campusAreaOptions, editItem, presetCampusAreaId, initialName, onCancel, onSubmit }) {
   const isEdit = !!editItem
   const fixedArea = !isEdit && presetCampusAreaId != null

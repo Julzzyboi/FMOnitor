@@ -22,26 +22,10 @@ import {
   CONDITIONS,
   AVAILABILITY_OPTIONS,
   INITIAL_EQUIPMENT,
-} from './inventoryData'
+} from './data/inventoryData'
 
-// 3 rows of the xl:4-column grid - a round number that also divides evenly
-// into the smaller grid widths (2/3 columns) without an awkward half-empty
-// last row on most page counts.
 const PAGE_SIZE = 12
 
-// No backend inventory table/API exists yet (Storage/Venue/CampusArea all
-// have real ones; this doesn't) - everything here lives in local component
-// state, seeded from the real physical count sheet the user provided
-// (inventoryData.js). Adds/edits/deletes only persist for this browser tab's
-// session, same tradeoff as CampusMap's delivery-tickets stub. Wire this up
-// to a real /api/equipment endpoint (mirroring StorageController) once
-// that's ready, and this component's shape barely has to change - swap the
-// useState seed for a fetch, keep everything else.
-
-// Same flat, ring-based checkbox as CampusMap/FilterNav's (scaled down a
-// notch - this sidebar now has three filter sections instead of one) - kept
-// as its own copy rather than a shared import since the two live in
-// unrelated features.
 function Checkbox({ checked }) {
   return (
     <span
@@ -57,9 +41,6 @@ function Checkbox({ checked }) {
   )
 }
 
-// One shape shared by Location/Condition/Availability - each is just "which
-// values of this one field are currently visible", so the section markup
-// only needs writing once.
 function FilterSection({ title, options, counts, visible, onToggle }) {
   return (
     <div className="mb-3 last:mb-0">
@@ -114,9 +95,6 @@ function toCsv(items) {
 function InventoryContent() {
   const [equipment, setEquipment] = useState(INITIAL_EQUIPMENT)
   const [search, setSearch] = useState('')
-  // Every section starts with nothing ticked, and an empty section doesn't
-  // filter at all - so the page opens on the full inventory, and ticking
-  // boxes narrows it down to just those values.
   const [visibleLocations, setVisibleLocations] = useState(() => new Set())
   const [visibleConditions, setVisibleConditions] = useState(() => new Set())
   const [visibleAvailability, setVisibleAvailability] = useState(() => new Set())
@@ -126,7 +104,7 @@ function InventoryContent() {
   const [editingItem, setEditingItem] = useState(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
-  const [toast, setToast] = useState(null) // { message, type }
+  const [toast, setToast] = useState(null)
 
   useEffect(() => {
     if (!toast) return
@@ -153,19 +131,13 @@ function InventoryContent() {
       if (!query) return true
       return e.name.toLowerCase().includes(query) || e.location.toLowerCase().includes(query)
     })
-    // Same order as the physical count sheet: grouped by storage area in
-    // STORAGE_AREAS order, then each area's rows top to bottom (seed ids
-    // follow the sheet; items added later land at the end of their area).
     if (sort === 'location') {
       result.sort((a, b) => STORAGE_AREAS.indexOf(a.location) - STORAGE_AREAS.indexOf(b.location) || a.id - b.id)
     } else if (sort === 'name') result.sort((a, b) => a.name.localeCompare(b.name))
-    else result.sort((a, b) => b.id - a.id) // newest (most recently added) first
+    else result.sort((a, b) => b.id - a.id)
     return result
   }, [equipment, visibleLocations, visibleConditions, visibleAvailability, search, sort])
 
-  // Any change to what's being shown jumps back to page 1 - otherwise a
-  // filter/search narrowing the list can strand you on a now-nonexistent
-  // page, looking at an empty grid with no obvious explanation.
   useEffect(() => {
     setPage(1)
   }, [visibleLocations, visibleConditions, visibleAvailability, search, sort])
@@ -180,8 +152,6 @@ function InventoryContent() {
     setShowAddModal(false)
     setToast({ message: `${payload.name} added successfully`, type: 'success' })
   }
-  // Saving drops back to the details view (now showing the updated values)
-  // rather than closing everything - that's where the edit was started from.
   const handleEdit = (payload) => {
     const updated = { ...editingItem, ...payload }
     setEquipment((prev) => prev.map((e) => (e.id === updated.id ? updated : e)))
@@ -360,9 +330,6 @@ function InventoryContent() {
         </div>
       </div>
 
-      {/* Portaled to <body> - AdminPageShell's fade-in animation makes it a
-          stacking context, which otherwise traps these fixed overlays under
-          the sticky Topbar/Sidebar no matter their own z-index. */}
       {createPortal(
         <>
           {showAddModal && <EquipmentModal onCancel={() => setShowAddModal(false)} onSubmit={handleAdd} />}

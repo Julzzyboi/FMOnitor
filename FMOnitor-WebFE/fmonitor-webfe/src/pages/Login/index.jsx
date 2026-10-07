@@ -1,44 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import DotGrid from '../components/common/DotGrid'
-import WaveFooter from '../components/common/WaveFooter'
-import logo from '../assets/logo.png'
-import buildingBg from '../assets/building-bg.png'
+import DotGrid from '../../components/common/DotGrid'
+import WaveFooter from '../../components/common/WaveFooter'
+import GoogleIcon from './components/GoogleIcon'
+import logo from '../../assets/logo.png'
+import buildingBg from '../../assets/building-bg.png'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
-// Floor for how long the "signing you in" loader starys up after a successful
-// Google login, even if the /api/user confirmation comes back almost
-// instantly - without this, a fast network made the loader flash for only a
-// few ms, which read as no transition at all rather than a smooth one.
 const MIN_LOADING_DISPLAY_MS = 600
 
-function GoogleIcon() {
-  return (
-    <svg className="h-[18px] w-[18px]" viewBox="0 0 48 48" aria-hidden="true">
-      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.9-2.26 5.36-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-    </svg>
-  )
-}
-
-// Captured once, at MODULE load time - not inside the component. This app
-// renders under <StrictMode>, which deliberately mounts every component
-// twice in dev (mount -> discard -> mount again) to surface effects that
-// aren't idempotent. The token-handling effect below used to read the URL
-// and then strip it via history.replaceState - fine on its own, but the
-// *second* StrictMode mount would then find an already-stripped URL and
-// conclude (wrongly) that there was never a token, flashing the sign-in
-// button while the *first* mount's abandoned fetch silently finished the
-// login and navigated away underneath it. Reading the token once here, before
-// any component instance exists to be duplicated, means every mount attempt
-// - however many StrictMode runs - agrees on the same answer.
 const initialParams = new URLSearchParams(window.location.search)
 const initialToken = initialParams.get('token')
-// Set by OAuth2LoginFailureHandler on the backend when CustomOAuth2UserService
-// rejects a login - an unrecognized Google account, or one that's Disabled/Deleted.
 const initialError = initialParams.get('error')
 if (initialToken || initialError) {
   const params = new URLSearchParams(window.location.search)
@@ -61,23 +34,18 @@ function Login() {
 
   useEffect(() => {
     if (!initialToken) {
-      // Plain visit to the login page - just show the sign-in button, no auto-redirect.
       setLoading(false)
       return
     }
 
     localStorage.setItem('jwt', initialToken)
 
-    // Just completed the Google OAuth round trip - confirm the session is valid, then go straight to the dashboard.
     const startedAt = Date.now()
     fetch(`${API_BASE_URL}/api/user`, { credentials: 'include' })
       .then((res) => {
         if (res.ok) {
           const elapsed = Date.now() - startedAt
           const remaining = Math.max(0, MIN_LOADING_DISPLAY_MS - elapsed)
-          // Wait out the minimum display floor, THEN fade this loader out,
-          // THEN navigate - an instant unmount here was the hard, jarring cut
-          // straight into the dashboard shell popping in with no transition.
           setTimeout(() => {
             setLeaving(true)
             setTimeout(() => navigate('/dashboard', { replace: true }), 300)

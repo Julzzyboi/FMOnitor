@@ -1,7 +1,7 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faUser } from '@fortawesome/free-solid-svg-icons'
 import RowActionsMenu from './RowActionsMenu'
-import { ROLE_STYLES, STATUS_STYLES, daysUntilPurge, purgeDate } from '../userStyles'
+import { ROLE_STYLES, STATUS_STYLES, daysUntilPurge, purgeDate } from '../utils/userStyles'
 
 function UserCard({ user, onClick, onEdit, onDisable, onDelete, onRestore, onPermanentDelete }) {
   const roleStyle = ROLE_STYLES[user.role]

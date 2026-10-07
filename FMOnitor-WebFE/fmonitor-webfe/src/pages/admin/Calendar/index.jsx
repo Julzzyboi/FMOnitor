@@ -22,7 +22,7 @@ import CompletedTasks from './panels/CompletedTasks'
 import TaskDetailsModal from './modals/TaskDetailsModal'
 import TaskModal from './modals/TaskModal'
 import DatePickerDropdown from './components/DatePickerDropdown'
-import { STATUS_STYLES, TASK_STATUSES, TASK_TYPES, generateTasks, isCompleted, nextTicketId } from './taskData'
+import { STATUS_STYLES, TASK_STATUSES, TASK_TYPES, generateTasks, isCompleted, nextTicketId } from './data/taskData'
 import {
   addDays,
   addMonths,
@@ -35,11 +35,7 @@ import {
   isSameDay,
   isSameMonth,
   startOfDay,
-} from './dateUtils'
-
-// No backend task table/API exists yet - tickets live in this component's
-// state, seeded by generateTasks() (see taskData.js), so adds/edits/status
-// changes only last for this tab's session. Same tradeoff as Inventory.
+} from './utils/dateUtils'
 
 const VIEWS = [
   { key: 'day', label: 'Day' },
@@ -47,7 +43,6 @@ const VIEWS = [
   { key: 'month', label: 'Month' },
 ]
 
-// Same flat, ring-based checkbox as Inventory/CampusMap's filter lists.
 function Checkbox({ checked }) {
   return (
     <span
@@ -72,8 +67,6 @@ function toggleInSet(setState, value) {
   })
 }
 
-// The filter icon in the calendar header: which statuses/types the schedule
-// shows. Nothing ticked in a section means that section doesn't filter.
 function CalendarFilter({ visibleStatuses, setVisibleStatuses, visibleTypes, setVisibleTypes }) {
   const [open, setOpen] = useState(false)
   const close = () => setOpen(false)
@@ -169,8 +162,6 @@ function CalendarContent() {
   const [toast, setToast] = useState(null)
   const completedRef = useRef(null)
 
-  // Follow the clock across midnight: if the user was sitting on "today",
-  // move the selection to the new today rather than leaving it behind.
   const todayKey = dayKey(now)
   const prevTodayKey = useRef(todayKey)
   useEffect(() => {
@@ -188,7 +179,6 @@ function CalendarContent() {
   const viewingTask = tasks.find((t) => t.id === viewingId) ?? null
   const editingTask = tasks.find((t) => t.id === editingId) ?? null
 
-  // Esc closes whichever overlay is on top.
   useEffect(() => {
     const onKey = (e) => {
       if (e.key !== 'Escape') return
@@ -242,7 +232,6 @@ function CalendarContent() {
   const openNewTask = (start) => {
     if (start) return setNewTaskStart(start)
     if (isSameDay(selectedDate, now)) {
-      // Next half hour from now, so a task made "today" isn't already late.
       const d = new Date(now)
       d.setMinutes(d.getMinutes() < 30 ? 30 : 60, 0, 0)
       return setNewTaskStart(d)
@@ -437,9 +426,6 @@ function CalendarContent() {
         <CompletedTasks tasks={tasks} now={now} onOpenTask={openTask} sectionRef={completedRef} />
       </div>
 
-      {/* Portaled to <body> - AdminPageShell's fade-in animation makes it a
-          stacking context, which would otherwise trap these fixed overlays
-          under the sticky Topbar/Sidebar (same as Inventory). */}
       {createPortal(
         <>
           {viewingTask && !editingTask && (

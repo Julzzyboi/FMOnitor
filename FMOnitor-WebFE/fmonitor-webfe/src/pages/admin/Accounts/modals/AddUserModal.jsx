@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faXmark, faPaperPlane } from '@fortawesome/free-solid-svg-icons'
-import { ROLES } from '../mockUsers'
+import { ROLES } from '../data/mockUsers'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
