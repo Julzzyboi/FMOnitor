@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faXmark } from '@fortawesome/free-solid-svg-icons'
+import { faXmark, faShieldHalved } from '@fortawesome/free-solid-svg-icons'
 import { Link } from 'react-router-dom'
 import PhotoFileInput from '../../../../components/common/PhotoFileInput'
-import { CONDITIONS, AVAILABILITY_OPTIONS } from '../data/inventoryData'
+import { CONDITIONS, AVAILABILITY_OPTIONS, CRITICAL_MAX_QTY } from '../data/inventoryData'
 import { validateEquipment } from '../utils/equipmentValidation'
 import StorageSearchSelect from '../components/StorageSearchSelect'
 
@@ -30,7 +30,17 @@ function EquipmentModal({ item, storageGroups, onCancel, onSubmit }) {
   const [available, setAvailable] = useState(item?.available ?? 0)
   const [condition, setCondition] = useState(item?.condition ?? CONDITIONS[0])
   const [availability, setAvailability] = useState(item?.availability ?? AVAILABILITY_OPTIONS[0])
+  const [critical, setCritical] = useState(item?.critical ?? false)
   const [errors, setErrors] = useState({})
+
+  const chooseCritical = (next) => {
+    setCritical(next)
+    // A new critical item is usually one unit on hand. When editing, the
+    // quantity is left alone so it's never changed silently - validation
+    // asks the user to fix it instead.
+    if (next && !isEdit && Number(available) > CRITICAL_MAX_QTY) setAvailable(CRITICAL_MAX_QTY)
+    if (next && !isEdit && available === 0) setAvailable(1)
+  }
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(null)
 
@@ -39,7 +49,7 @@ function EquipmentModal({ item, storageGroups, onCancel, onSubmit }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (submitting) return
-    const found = validateEquipment({ name, storageId, available })
+    const found = validateEquipment({ name, storageId, available, critical })
     setErrors(found)
     if (Object.keys(found).length > 0) return
 
@@ -52,6 +62,7 @@ function EquipmentModal({ item, storageGroups, onCancel, onSubmit }) {
       available: Number(available),
       condition,
       availability,
+      critical,
     })
     if (!result?.ok) {
       setSubmitError(result?.message || 'Failed to save.')
@@ -128,11 +139,48 @@ function EquipmentModal({ item, storageGroups, onCancel, onSubmit }) {
               <FieldError message={errors.storageId} />
             </div>
 
+            <div className="flex flex-col gap-1">
+              <span className={labelClass}>Criticality</span>
+              <div role="radiogroup" aria-label="Criticality" className="grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-1">
+                {[
+                  [false, 'Non-Critical'],
+                  [true, 'Critical'],
+                ].map(([value, label]) => {
+                  const selected = critical === value
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => chooseCritical(value)}
+                      className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-bold uppercase tracking-wide transition-colors duration-150 ${
+                        selected
+                          ? value
+                            ? 'bg-violet-600 text-white shadow-sm'
+                            : 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      {value && <FontAwesomeIcon icon={faShieldHalved} className="h-3 w-3" />}
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-[11px] leading-snug text-gray-400">
+                {critical
+                  ? 'Tracked one unit per ID - each unit gets its own item, ID and QR sticker.'
+                  : 'Bulk stock - one ID covers all units of this item in this storage.'}
+              </p>
+            </div>
+
             <label className="flex flex-col gap-1">
               <span className={labelClass}>Quantity Available</span>
               <input
                 type="number"
                 min="0"
+                max={critical ? CRITICAL_MAX_QTY : undefined}
                 value={available}
                 onChange={(e) => setAvailable(e.target.value)}
                 className={inputClass(errors.available)}

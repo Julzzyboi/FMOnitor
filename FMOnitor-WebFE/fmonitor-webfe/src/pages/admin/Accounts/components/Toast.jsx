@@ -1,10 +1,12 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faCircleCheck, faTriangleExclamation, faBan } from '@fortawesome/free-solid-svg-icons'
+import { faCircleCheck, faTriangleExclamation, faBan, faClock } from '@fortawesome/free-solid-svg-icons'
 
 const TOAST_STYLES = {
   success: { bg: 'bg-emerald-600', icon: faCircleCheck },
   danger: { bg: 'bg-red-600', icon: faTriangleExclamation },
   warning: { bg: 'bg-amber-500', icon: faBan },
+  // Something was sent off and is waiting on someone else (e.g. approval).
+  pending: { bg: 'bg-gray-900', icon: faClock },
 }
 
 function Toast({ message, type = 'success' }) {

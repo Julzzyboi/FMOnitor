@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faXmark, faImage, faPen, faTrash, faFlag, faExpand } from '@fortawesome/free-solid-svg-icons'
-import { AvailabilityTag, ConditionTag } from '../components/InventoryTags'
+import { faXmark, faImage, faPen, faTrash, faFlag, faExpand, faQrcode, faClock } from '@fortawesome/free-solid-svg-icons'
+import QrStickerModal from './QrStickerModal'
+import { AvailabilityTag, ConditionTag, CriticalTag } from '../components/InventoryTags'
 import PhotoLightbox from '../components/PhotoLightbox'
 import RelativeTime from '../components/RelativeTime'
 import { formatDateTime } from '../utils/timeFormat'
@@ -16,8 +17,18 @@ function DetailRow({ label, value }) {
   )
 }
 
-function EquipmentDetailsModal({ item, openReportCount = 0, onClose, onEdit, onDelete, onReport }) {
+function EquipmentDetailsModal({
+  item,
+  openReportCount = 0,
+  pendingCount = 0,
+  canChange = true,
+  onClose,
+  onEdit,
+  onDelete,
+  onReport,
+}) {
   const [photoExpanded, setPhotoExpanded] = useState(false)
+  const [showQr, setShowQr] = useState(false)
   const closePhoto = useCallback(() => setPhotoExpanded(false), [])
 
   return (
@@ -69,6 +80,13 @@ function EquipmentDetailsModal({ item, openReportCount = 0, onClose, onEdit, onD
           <p className="mt-4 text-[10px] font-bold uppercase tracking-wide text-gray-400">{item.location}</p>
           <p className="mt-0.5 text-lg font-bold text-gray-900">{item.name}</p>
 
+          {pendingCount > 0 && (
+            <p className="mt-2 flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+              <FontAwesomeIcon icon={faClock} className="h-3 w-3" />
+              {pendingCount} change{pendingCount === 1 ? '' : 's'} to this item waiting for Superadmin approval
+            </p>
+          )}
+
           <div className="mt-3">
             <DetailRow
               label="Item ID"
@@ -78,6 +96,10 @@ function EquipmentDetailsModal({ item, openReportCount = 0, onClose, onEdit, onD
             <DetailRow label="Quantity Available" value={item.available} />
             <DetailRow label="Condition" value={<ConditionTag condition={item.condition} />} />
             <DetailRow label="Type" value={<AvailabilityTag availability={item.availability} />} />
+            <DetailRow
+              label="Criticality"
+              value={item.critical ? <CriticalTag /> : <span className="text-gray-500">Non-Critical</span>}
+            />
             <DetailRow label="Open Reports" value={openReportCount} />
             <DetailRow label="Date Added" value={formatDateTime(item.createdAt)} />
             <DetailRow
@@ -91,16 +113,29 @@ function EquipmentDetailsModal({ item, openReportCount = 0, onClose, onEdit, onD
             />
           </div>
 
-          <button
-            type="button"
-            onClick={onReport}
-            className="mt-3 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 px-4 py-2 text-xs font-semibold text-gray-500 transition-colors duration-150 hover:border-[#fccb35] hover:text-[#a3790f]"
-          >
-            <FontAwesomeIcon icon={faFlag} className="h-3 w-3" />
-            Report an Issue
-          </button>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setShowQr(true)}
+              className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-xs font-semibold text-gray-700 transition-colors duration-150 hover:border-[#fccb35] hover:bg-[#fccb35]/10"
+            >
+              <FontAwesomeIcon icon={faQrcode} className="h-3.5 w-3.5" />
+              QR Sticker
+            </button>
+            <button
+              type="button"
+              onClick={onReport}
+              className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 px-4 py-2 text-xs font-semibold text-gray-500 transition-colors duration-150 hover:border-[#fccb35] hover:text-[#a3790f]"
+            >
+              <FontAwesomeIcon icon={faFlag} className="h-3 w-3" />
+              Report an Issue
+            </button>
+          </div>
+
+          {showQr && <QrStickerModal item={item} onClose={() => setShowQr(false)} />}
         </div>
 
+        {canChange && (
         <div className="flex shrink-0 gap-2.5 border-t border-gray-100 px-6 py-4">
           <button
             type="button"
@@ -119,6 +154,7 @@ function EquipmentDetailsModal({ item, openReportCount = 0, onClose, onEdit, onD
             Edit
           </button>
         </div>
+        )}
       </div>
     </div>
   )

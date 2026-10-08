@@ -54,7 +54,7 @@ function InventorySkeleton({ view }) {
 
   return (
     <div className="flex animate-pulse flex-col gap-6 lg:flex-row lg:items-start" aria-busy="true" aria-label="Loading inventory">
-      <aside className="w-full shrink-0 lg:w-56">
+      <aside className="w-full shrink-0 lg:w-64">
         <div className="rounded-xl bg-white p-3.5 shadow-sm">
           <div className="mb-4 flex items-center justify-between px-1">
             <div className="h-3.5 w-14 rounded bg-gray-200" />

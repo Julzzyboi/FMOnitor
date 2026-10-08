@@ -11,5 +11,7 @@ import java.util.Optional;
 public interface tbl_UsersRepo extends JpaRepository<tbl_Users, Long> {
     Optional<tbl_Users> findByGoogleSub(String googleSub);
     Optional<tbl_Users> findByEmail(String email);
+
+    List<tbl_Users> findByRole(String role);
     List<tbl_Users> findByStatusAndDeletedAtBefore(String status, Instant cutoff);
 }

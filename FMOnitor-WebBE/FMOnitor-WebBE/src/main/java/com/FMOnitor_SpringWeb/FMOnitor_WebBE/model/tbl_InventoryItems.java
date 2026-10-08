@@ -63,6 +63,13 @@ public class tbl_InventoryItems {
     @Column(nullable = false)
     private String availability;
 
+    // A critical item is tracked one physical unit per ID (its own record,
+    // ID and QR sticker), so its quantity is always exactly 1. Non-critical
+    // items are bulk stock where one ID covers many units. The DB default
+    // lets Hibernate add the column to a table that already has rows.
+    @Column(name = "is_critical", nullable = false, columnDefinition = "boolean not null default false")
+    private Boolean critical = false;
+
     @Column(name = "photo_url", columnDefinition = "TEXT")
     private String photoUrl;
 

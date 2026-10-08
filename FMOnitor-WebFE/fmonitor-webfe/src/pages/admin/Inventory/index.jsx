@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -10,6 +10,11 @@ import {
   faClipboardList,
   faTrashCan,
 } from '@fortawesome/free-solid-svg-icons'
+import { useAuth } from '../../../context/AuthContext'
+import ActionList from './components/ActionList'
+import ChangeRequestModal from './modals/ChangeRequestModal'
+import RejectChangeModal from './modals/RejectChangeModal'
+import { blockedRequests } from './data/changeRequests'
 import AdminPageShell from '../../../components/layout/AdminPageShell'
 import useDelayedLoading from '../../../hooks/useDelayedLoading'
 import InventorySkeleton from './components/InventorySkeleton'
@@ -34,10 +39,13 @@ import {
   REPORTS_ENDPOINT,
   STORAGES_ENDPOINT,
   FACILITIES_ENDPOINT,
+  CHANGE_REQUESTS_ENDPOINT,
 } from './api/inventoryApi'
 import {
   CONDITIONS,
   AVAILABILITY_OPTIONS,
+  CRITICALITY_OPTIONS,
+  criticalityOf,
   REPORT_TYPES,
   REPORT_STATUSES,
 } from './data/inventoryData'
@@ -70,6 +78,12 @@ const SEARCH_PLACEHOLDERS = {
   trash: 'Search the trash bin by item name, ID or location…',
 }
 const LIST_LABELS = { items: 'items', reports: 'reports', trash: 'items in the trash' }
+
+
+const TRASH_ORDER_OPTIONS = [
+  ['recent', 'Recently deleted'],
+  ['soonest', 'Deleting soonest'],
+]
 
 function ViewToggle({ view, onChange, itemCount, openReportCount, trashCount }) {
   const tabs = [
@@ -109,6 +123,15 @@ function ViewToggle({ view, onChange, itemCount, openReportCount, trashCount }) 
 }
 
 function InventoryContent() {
+  // Superadmins change the inventory directly; Admins' changes are queued
+  // for a Superadmin to approve; anyone else can only look.
+  const { user } = useAuth()
+  const isSuperadmin = user?.role === 'Superadmin'
+  const isAdmin = user?.role === 'Admin'
+  const canChange = isSuperadmin || isAdmin
+  // Title of the sidebar queue panel; Hauler/Requestor don't get one.
+  const actionListTitle = isSuperadmin ? 'Action List' : isAdmin ? 'My Requests' : null
+
   const [searchParams, setSearchParams] = useSearchParams()
   const view = VIEWS.includes(searchParams.get('view')) ? searchParams.get('view') : 'items'
   const setView = (next) => setSearchParams(next === 'items' ? {} : { view: next }, { replace: true })
@@ -126,6 +149,7 @@ function InventoryContent() {
   // Items view
   const [itemSearch, setItemSearch] = useState('')
   const [itemTypes, setItemTypes] = useState(() => new Set())
+  const [itemCriticality, setItemCriticality] = useState(() => new Set())
   const [itemConditions, setItemConditions] = useState(() => new Set())
   const [itemLocations, setItemLocations] = useState(() => new Set())
   const [itemSort, setItemSort] = useState('location')
@@ -141,9 +165,20 @@ function InventoryContent() {
 
   // Trash view
   const [trashSearch, setTrashSearch] = useState('')
+  const [trashOrder, setTrashOrder] = useState('recent')
+  const [trashTypes, setTrashTypes] = useState(() => new Set())
+  const [trashCriticality, setTrashCriticality] = useState(() => new Set())
+  const [trashConditions, setTrashConditions] = useState(() => new Set())
+  const [trashLocations, setTrashLocations] = useState(() => new Set())
   const [trashPage, setTrashPage] = useState(1)
   // { item, action: 'restore' | 'purge' } while a trash action waits for confirmation
   const [trashAction, setTrashAction] = useState(null)
+
+  // Approval queue (Superadmin: every request; Admin: their own)
+  const [changeRequests, setChangeRequests] = useState([])
+  const [openRequestId, setOpenRequestId] = useState(null)
+  const [approvingRequest, setApprovingRequest] = useState(null)
+  const [rejectingRequest, setRejectingRequest] = useState(null)
 
   const [viewingItemId, setViewingItemId] = useState(null)
   const [editingItem, setEditingItem] = useState(null)
@@ -160,15 +195,18 @@ function InventoryContent() {
     return () => clearTimeout(timer)
   }, [toast])
 
-  useEffect(() => {
-    Promise.all([
-      apiRequest('GET', ITEMS_ENDPOINT),
-      apiRequest('GET', REPORTS_ENDPOINT),
-      apiRequest('GET', STORAGES_ENDPOINT),
-      apiRequest('GET', FACILITIES_ENDPOINT),
-      apiRequest('GET', `${ITEMS_ENDPOINT}?trashed=true`),
-    ])
-      .then(([itemsResult, reportsResult, storagesResult, facilitiesResult, trashResult]) => {
+  // Loads everything on the page. Also used after a Superadmin approves a
+  // change, since that can touch items, the trash and reports at once.
+  const loadAll = useCallback(
+    () =>
+      Promise.all([
+        apiRequest('GET', ITEMS_ENDPOINT),
+        apiRequest('GET', REPORTS_ENDPOINT),
+        apiRequest('GET', STORAGES_ENDPOINT),
+        apiRequest('GET', FACILITIES_ENDPOINT),
+        apiRequest('GET', `${ITEMS_ENDPOINT}?trashed=true`),
+        actionListTitle ? apiRequest('GET', CHANGE_REQUESTS_ENDPOINT) : Promise.resolve(null),
+      ]).then(([itemsResult, reportsResult, storagesResult, facilitiesResult, trashResult, requestsResult]) => {
         if (itemsResult.ok) setRawItems(itemsResult.data)
         else setToast({ message: 'Failed to load inventory', type: 'danger' })
         if (trashResult.ok) setRawTrash(trashResult.data)
@@ -176,9 +214,34 @@ function InventoryContent() {
         else setToast({ message: 'Failed to load reports', type: 'danger' })
         if (storagesResult.ok) setStorages(storagesResult.data)
         if (facilitiesResult.ok) setFacilities(facilitiesResult.data)
-      })
-      .finally(() => setLoading(false))
-  }, [])
+        if (requestsResult?.ok) setChangeRequests(requestsResult.data)
+      }),
+    [actionListTitle],
+  )
+
+  useEffect(() => {
+    loadAll().finally(() => setLoading(false))
+  }, [loadAll])
+
+  // Notifications link to /inventory?request=<id>: fetch the latest queue
+  // (the page may already be open) and open that request.
+  const linkedRequestId = Number(searchParams.get('request')) || null
+  useEffect(() => {
+    if (!linkedRequestId || !actionListTitle) return
+    apiRequest('GET', CHANGE_REQUESTS_ENDPOINT).then((result) => {
+      if (result.ok) setChangeRequests(result.data)
+      setOpenRequestId(linkedRequestId)
+    })
+  }, [linkedRequestId, actionListTitle])
+
+  const closeRequest = () => {
+    setOpenRequestId(null)
+    if (linkedRequestId) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('request')
+      setSearchParams(next, { replace: true })
+    }
+  }
 
   const storageNames = useMemo(() => new Map(storages.map((s) => [s.id, s.name])), [storages])
 
@@ -230,6 +293,7 @@ function InventoryContent() {
 
   // ---- Items: filter + sort ----
   const itemTypeCounts = useMemo(() => countBy(equipment, (e) => e.availability, AVAILABILITY_OPTIONS), [equipment])
+  const itemCriticalityCounts = useMemo(() => countBy(equipment, criticalityOf, CRITICALITY_OPTIONS), [equipment])
   const itemConditionCounts = useMemo(() => countBy(equipment, (e) => e.condition, CONDITIONS), [equipment])
   const itemLocationCounts = useMemo(
     () => countBy(equipment, (e) => e.location, storageFilterOptions),
@@ -240,6 +304,7 @@ function InventoryContent() {
     const query = itemSearch.trim().toLowerCase()
     const result = equipment.filter((e) => {
       if (itemTypes.size && !itemTypes.has(e.availability)) return false
+      if (itemCriticality.size && !itemCriticality.has(criticalityOf(e))) return false
       if (itemConditions.size && !itemConditions.has(e.condition)) return false
       if (itemLocations.size && !itemLocations.has(e.location)) return false
       if (!query) return true
@@ -251,7 +316,7 @@ function InventoryContent() {
     else if (itemSort === 'updated') result.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt) || b.id - a.id)
     else result.sort((a, b) => b.id - a.id)
     return result
-  }, [equipment, itemTypes, itemConditions, itemLocations, itemSearch, itemSort])
+  }, [equipment, itemTypes, itemCriticality, itemConditions, itemLocations, itemSearch, itemSort])
 
 
   // ---- Reports: filter + sort ----
@@ -279,12 +344,42 @@ function InventoryContent() {
     return result
   }, [reports, itemsById, reportTypes, reportConditions, reportStatuses, reportSearch, reportOrder])
 
-  // ---- Trash: search only, most recently deleted first (as the API returns it) ----
+  // ---- Trash: same filters as Items, ordered by when it was deleted ----
+  const trashTypeCounts = useMemo(() => countBy(trash, (e) => e.availability, AVAILABILITY_OPTIONS), [trash])
+  const trashCriticalityCounts = useMemo(() => countBy(trash, criticalityOf, CRITICALITY_OPTIONS), [trash])
+  const trashConditionCounts = useMemo(() => countBy(trash, (e) => e.condition, CONDITIONS), [trash])
+  const trashLocationCounts = useMemo(
+    () => countBy(trash, (e) => e.location, storageFilterOptions),
+    [trash, storageFilterOptions],
+  )
+
   const filteredTrash = useMemo(() => {
     const query = trashSearch.trim().toLowerCase()
-    if (!query) return trash
-    return trash.filter((e) => [e.name, e.location, formatItemId(e.id)].some((f) => f.toLowerCase().includes(query)))
-  }, [trash, trashSearch])
+    const result = trash.filter((e) => {
+      if (trashTypes.size && !trashTypes.has(e.availability)) return false
+      if (trashCriticality.size && !trashCriticality.has(criticalityOf(e))) return false
+      if (trashConditions.size && !trashConditions.has(e.condition)) return false
+      if (trashLocations.size && !trashLocations.has(e.location)) return false
+      if (!query) return true
+      return [e.name, e.location, formatItemId(e.id)].some((f) => f.toLowerCase().includes(query))
+    })
+    // Oldest deletion = closest to its automatic permanent deletion.
+    const direction = trashOrder === 'soonest' ? 1 : -1
+    result.sort((a, b) => direction * (new Date(a.deletedAt) - new Date(b.deletedAt)))
+    return result
+  }, [trash, trashTypes, trashCriticality, trashConditions, trashLocations, trashSearch, trashOrder])
+
+  // ---- Approval queue (sidebar Action List) ----
+  // Items and trash together, to show a request's current item.
+  const itemLookup = useMemo(() => new Map([...trash, ...equipment].map((e) => [e.id, e])), [trash, equipment])
+  const blockedByMap = useMemo(() => blockedRequests(changeRequests), [changeRequests])
+  const openRequest = openRequestId != null ? changeRequests.find((r) => r.id === openRequestId) ?? null : null
+  // Items with a change waiting for approval get a "Pending" badge.
+  const pendingCountByItem = useMemo(() => {
+    const counts = {}
+    for (const r of changeRequests) if (r.status === 'Pending' && r.itemId != null) counts[r.itemId] = (counts[r.itemId] ?? 0) + 1
+    return counts
+  }, [changeRequests])
 
   // ---- Paging ----
   const isItems = view === 'items'
@@ -314,9 +409,16 @@ function InventoryContent() {
     resetPage()
     if (isItems) {
       setItemTypes(new Set())
+      setItemCriticality(new Set())
       setItemConditions(new Set())
       setItemLocations(new Set())
-    } else if (!isTrash) {
+    } else if (isTrash) {
+      setTrashOrder('recent')
+      setTrashTypes(new Set())
+      setTrashCriticality(new Set())
+      setTrashConditions(new Set())
+      setTrashLocations(new Set())
+    } else {
       setReportOrder('newest')
       setReportTypes(new Set())
       setReportConditions(new Set())
@@ -328,21 +430,36 @@ function InventoryContent() {
     setSearch('')
   }
 
+  // An Admin's change comes back as 202 with the queued request instead of
+  // the changed item: nothing changes yet, it just joins "My Requests".
+  const handleQueued = (result) => {
+    setChangeRequests((prev) => [result.data.request, ...prev])
+    setToast({ message: 'Sent to a Superadmin for approval', type: 'pending' })
+  }
+
   // ---- Item CRUD ----
   const handleAdd = async (payload) => {
     const result = await apiRequest('POST', ITEMS_ENDPOINT, payload)
     if (!result.ok) return result
-    setRawItems((prev) => [...prev, result.data])
     setShowAddModal(false)
+    if (result.queued) {
+      handleQueued(result)
+      return result
+    }
+    setRawItems((prev) => [...prev, result.data])
     setToast({ message: `${result.data.name} added successfully`, type: 'success' })
     return result
   }
   const handleEdit = async (payload) => {
     const result = await apiRequest('PATCH', `${ITEMS_ENDPOINT}/${editingItem.id}`, payload)
     if (!result.ok) return result
+    setEditingItem(null)
+    if (result.queued) {
+      handleQueued(result)
+      return result
+    }
     const updated = result.data
     setRawItems((prev) => prev.map((e) => (e.id === updated.id ? updated : e)))
-    setEditingItem(null)
     setToast({ message: 'Changes saved successfully', type: 'success' })
     return result
   }
@@ -352,6 +469,10 @@ function InventoryContent() {
     setConfirmingDelete(false)
     if (!result.ok) {
       setToast({ message: result.message, type: 'danger' })
+      return
+    }
+    if (result.queued) {
+      handleQueued(result)
       return
     }
     // The API returns the item with its deletedAt set - it moves to the trash bin.
@@ -373,6 +494,10 @@ function InventoryContent() {
       setToast({ message: result.message, type: 'danger' })
       return
     }
+    if (result.queued) {
+      handleQueued(result)
+      return
+    }
     setRawTrash((prev) => prev.filter((e) => e.id !== item.id))
     if (action === 'restore') {
       setRawItems((prev) => [...prev, result.data])
@@ -381,6 +506,51 @@ function InventoryContent() {
       setReports((prev) => prev.filter((r) => r.itemId !== item.id))
       setToast({ message: `${item.name} permanently deleted`, type: 'danger' })
     }
+  }
+
+  // ---- Approval queue ----
+  const replaceRequest = (updated) => setChangeRequests((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))
+
+  const handleApprove = async () => {
+    const request = approvingRequest
+    const result = await apiRequest('POST', `${CHANGE_REQUESTS_ENDPOINT}/${request.id}/approve`)
+    setApprovingRequest(null)
+    if (!result.ok) {
+      setToast({ message: result.message, type: 'danger' })
+      // Someone else may have decided it - show the latest queue.
+      if (result.status === 409) loadAll()
+      return
+    }
+    replaceRequest(result.data.request)
+    closeRequest()
+    setToast({ message: 'Change approved and saved to the inventory', type: 'success' })
+    // The change can touch items, the trash and reports - reload them.
+    loadAll()
+  }
+  const handleReject = async (reason) => {
+    const request = rejectingRequest
+    const result = await apiRequest('POST', `${CHANGE_REQUESTS_ENDPOINT}/${request.id}/reject`, { reason })
+    if (!result.ok) {
+      setToast({ message: result.message, type: 'danger' })
+      setRejectingRequest(null)
+      if (result.status === 409) loadAll()
+      return false
+    }
+    setRejectingRequest(null)
+    replaceRequest(result.data.request)
+    closeRequest()
+    setToast({ message: `Rejected - ${request.requestedByName} has been notified`, type: 'danger' })
+    return true
+  }
+  const handleCancelRequest = async (request) => {
+    const result = await apiRequest('DELETE', `${CHANGE_REQUESTS_ENDPOINT}/${request.id}`)
+    if (!result.ok) {
+      setToast({ message: result.message, type: 'danger' })
+      return
+    }
+    replaceRequest(result.data.request)
+    closeRequest()
+    setToast({ message: 'Request cancelled', type: 'warning' })
   }
 
   // ---- Report CRUD ----
@@ -419,7 +589,7 @@ function InventoryContent() {
     if (isItems) {
       downloadCsv(
         'inventory-items.csv',
-        ['Item ID', 'Name', 'Storage', 'Quantity Available', 'Condition', 'Item Type', 'Date Added', 'Last Updated'],
+        ['Item ID', 'Name', 'Storage', 'Quantity Available', 'Condition', 'Item Type', 'Criticality', 'Date Added', 'Last Updated'],
         filteredItems.map((i) => [
           formatItemId(i.id),
           i.name,
@@ -427,6 +597,7 @@ function InventoryContent() {
           i.available,
           i.condition,
           i.availability,
+          criticalityOf(i),
           formatDateTime(i.createdAt),
           formatDateTime(i.updatedAt),
         ]),
@@ -457,19 +628,7 @@ function InventoryContent() {
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
       {/* Sections slide up one after another, same timing as the Accounts page. */}
-      <aside className="w-full shrink-0 animate-[fade-in-up_0.4s_ease-out_forwards] opacity-0 lg:w-56">
-        {isTrash ? (
-          <div className="rounded-xl bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2">
-              <FontAwesomeIcon icon={faTrashCan} className="h-3.5 w-3.5 text-gray-400" />
-              <span className="text-sm font-bold text-gray-900">Trash Bin</span>
-            </div>
-            <p className="mt-2 text-xs leading-relaxed text-gray-500">
-              Deleted items stay here for {TRASH_RETENTION_DAYS} days. Restore one to bring it back with its reports, or
-              delete it forever now. After {TRASH_RETENTION_DAYS} days it's removed automatically.
-            </p>
-          </div>
-        ) : (
+      <aside className="w-full shrink-0 animate-[fade-in-up_0.4s_ease-out_forwards] opacity-0 lg:w-64">
         <div className="rounded-xl bg-white p-3.5 shadow-sm">
           <div className="flex items-center justify-between px-1">
             <span className="text-sm font-bold text-gray-900">Filters</span>
@@ -482,8 +641,43 @@ function InventoryContent() {
             </button>
           </div>
 
-          <div className="mt-3">
-            {isItems ? (
+          {/* Fixed height: long option lists (e.g. many storages) scroll
+              inside the panel instead of pushing the Action List down. */}
+          <div className="mt-3 max-h-[22rem] overflow-y-auto pr-1 [scrollbar-width:thin]">
+            {isTrash ? (
+              <>
+                <RadioSection title="Order" options={TRASH_ORDER_OPTIONS} value={trashOrder} onChange={withReset(setTrashOrder)} />
+                <FilterSection
+                  title="Item Type"
+                  options={AVAILABILITY_OPTIONS}
+                  counts={trashTypeCounts}
+                  visible={trashTypes}
+                  onToggle={toggleFilter(setTrashTypes)}
+                />
+                <FilterSection
+                  title="Criticality"
+                  options={CRITICALITY_OPTIONS}
+                  counts={trashCriticalityCounts}
+                  visible={trashCriticality}
+                  onToggle={toggleFilter(setTrashCriticality)}
+                />
+                <FilterSection
+                  title="Condition"
+                  options={CONDITIONS}
+                  counts={trashConditionCounts}
+                  visible={trashConditions}
+                  onToggle={toggleFilter(setTrashConditions)}
+                  dotClassFor={conditionDotClass}
+                />
+                <FilterSection
+                  title="Storage Area"
+                  options={storageFilterOptions}
+                  counts={trashLocationCounts}
+                  visible={trashLocations}
+                  onToggle={toggleFilter(setTrashLocations)}
+                />
+              </>
+            ) : isItems ? (
               <>
                 <FilterSection
                   title="Item Type"
@@ -491,6 +685,13 @@ function InventoryContent() {
                   counts={itemTypeCounts}
                   visible={itemTypes}
                   onToggle={toggleFilter(setItemTypes)}
+                />
+                <FilterSection
+                  title="Criticality"
+                  options={CRITICALITY_OPTIONS}
+                  counts={itemCriticalityCounts}
+                  visible={itemCriticality}
+                  onToggle={toggleFilter(setItemCriticality)}
                 />
                 <FilterSection
                   title="Condition"
@@ -537,6 +738,15 @@ function InventoryContent() {
             )}
           </div>
         </div>
+
+        {actionListTitle && (
+          <ActionList
+            title={actionListTitle}
+            requests={changeRequests}
+            isSuperadmin={isSuperadmin}
+            blockedByMap={blockedByMap}
+            onOpen={(request) => setOpenRequestId(request.id)}
+          />
         )}
       </aside>
 
@@ -560,6 +770,7 @@ function InventoryContent() {
               <FontAwesomeIcon icon={faDownload} className="h-3.5 w-3.5" />
               Export CSV
             </button>
+            {(!isItems || canChange) && (
             <button
               type="button"
               onClick={() => (isItems ? setShowAddModal(true) : setReportForm({}))}
@@ -568,6 +779,7 @@ function InventoryContent() {
               <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
               {isItems ? 'Add Item' : 'New Report'}
             </button>
+            )}
           </div>
           )}
         </div>
@@ -611,6 +823,8 @@ function InventoryContent() {
             items={pageSlice}
             hasAnyTrash={trash.length > 0}
             reportCountByItem={reportCountByItem}
+            pendingCountByItem={pendingCountByItem}
+            canChange={canChange}
             onRestore={(item) => setTrashAction({ item, action: 'restore' })}
             onPurge={(item) => setTrashAction({ item, action: 'purge' })}
             onClearSearch={clearFiltersAndSearch}
@@ -619,6 +833,8 @@ function InventoryContent() {
           <ItemsView
             items={pageSlice}
             hasAnyItems={equipment.length > 0}
+            pendingCountByItem={pendingCountByItem}
+            canAdd={canChange}
             onView={(item) => setViewingItemId(item.id)}
             onAdd={() => setShowAddModal(true)}
             onClearFilters={clearFiltersAndSearch}
@@ -658,6 +874,8 @@ function InventoryContent() {
             <EquipmentDetailsModal
               item={viewingItem}
               openReportCount={openReportCounts[viewingItem.id] ?? 0}
+              pendingCount={pendingCountByItem[viewingItem.id] ?? 0}
+              canChange={canChange}
               onClose={() => setViewingItemId(null)}
               onEdit={() => setEditingItem(viewingItem)}
               onDelete={() => setConfirmingDelete(true)}
@@ -680,8 +898,12 @@ function InventoryContent() {
             <ConfirmModal
               variant="danger"
               title="Move this item to the trash?"
-              message={`${viewingItem.name} (${viewingItem.location}) will be moved to the trash bin. You can restore it within ${TRASH_RETENTION_DAYS} days; after that it's deleted for good.`}
-              confirmLabel="Move to Trash"
+              message={
+                isAdmin
+                  ? `Your request to move ${viewingItem.name} (${viewingItem.location}) to the trash bin will be sent to a Superadmin for approval.`
+                  : `${viewingItem.name} (${viewingItem.location}) will be moved to the trash bin. You can restore it within ${TRASH_RETENTION_DAYS} days; after that it's deleted for good.`
+              }
+              confirmLabel={isAdmin ? 'Send for Approval' : 'Move to Trash'}
               onConfirm={handleDelete}
               onCancel={() => setConfirmingDelete(false)}
             />
@@ -690,8 +912,12 @@ function InventoryContent() {
             <ConfirmModal
               variant="success"
               title="Restore this item?"
-              message={`${trashAction.item.name} will go back to ${trashAction.item.location}, along with its reports.`}
-              confirmLabel="Restore"
+              message={
+                isAdmin
+                  ? `Your request to restore ${trashAction.item.name} will be sent to a Superadmin for approval.`
+                  : `${trashAction.item.name} will go back to ${trashAction.item.location}, along with its reports.`
+              }
+              confirmLabel={isAdmin ? 'Send for Approval' : 'Restore'}
               onConfirm={handleTrashAction}
               onCancel={() => setTrashAction(null)}
             />
@@ -704,10 +930,40 @@ function InventoryContent() {
                 reportCountByItem[trashAction.item.id]
                   ? ` and its ${reportCountByItem[trashAction.item.id]} report${reportCountByItem[trashAction.item.id] === 1 ? '' : 's'}`
                   : ''
-              } will be permanently deleted. This can't be undone.`}
-              confirmLabel="Delete Forever"
+              } will be permanently deleted${isAdmin ? ' once a Superadmin approves your request' : ''}. This can't be undone.`}
+              confirmLabel={isAdmin ? 'Send for Approval' : 'Delete Forever'}
               onConfirm={handleTrashAction}
               onCancel={() => setTrashAction(null)}
+            />
+          )}
+          {openRequest && (
+            <ChangeRequestModal
+              request={openRequest}
+              item={openRequest.itemId != null ? itemLookup.get(openRequest.itemId) : null}
+              storageNames={storageNames}
+              isSuperadmin={isSuperadmin}
+              blockedBy={blockedByMap.get(openRequest.id)}
+              onApprove={setApprovingRequest}
+              onReject={setRejectingRequest}
+              onCancel={handleCancelRequest}
+              onClose={closeRequest}
+            />
+          )}
+          {approvingRequest && (
+            <ConfirmModal
+              variant="success"
+              title="Approve this change?"
+              message={`It will be applied to the inventory now, and ${approvingRequest.requestedByName} will be notified.`}
+              confirmLabel="Approve"
+              onConfirm={handleApprove}
+              onCancel={() => setApprovingRequest(null)}
+            />
+          )}
+          {rejectingRequest && (
+            <RejectChangeModal
+              request={rejectingRequest}
+              onCancel={() => setRejectingRequest(null)}
+              onConfirm={handleReject}
             />
           )}
           {deletingReport && (

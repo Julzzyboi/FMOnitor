@@ -1,13 +1,18 @@
 package com.FMOnitor_SpringWeb.FMOnitor_WebBE.controller;
 
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.model.tbl_InventoryChangeRequests;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.model.tbl_InventoryItems;
-import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_CampusStoragesRepo;
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.model.tbl_Users;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.repo.tbl_InventoryItemsRepo;
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.service.CurrentUserService;
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.service.InventoryChangeRequestService;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.service.InventoryService;
+import com.FMOnitor_SpringWeb.FMOnitor_WebBE.service.InventoryService.ItemChanges;
 import com.FMOnitor_SpringWeb.FMOnitor_WebBE.util.MapUtil;
-import com.FMOnitor_SpringWeb.FMOnitor_WebBE.util.SetUtil;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -18,33 +23,33 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.Instant;
 import java.util.List;
-import java.util.Set;
+import java.util.function.Function;
 
+import static com.FMOnitor_SpringWeb.FMOnitor_WebBE.model.tbl_InventoryChangeRequests.*;
+
+// Who can change the inventory:
+//  - Superadmin: changes are applied immediately.
+//  - Admin: the change is checked, then queued for a Superadmin to approve
+//    or reject (202 Accepted with the queued request) - nothing changes yet.
+//  - Anyone else: read-only (403).
 @RestController
 @RequestMapping("/api/inventory-items")
 public class InventoryItemController {
 
-    private static final int NAME_MAX = 100;
-    private static final Set<String> VALID_CONDITIONS = SetUtil.of("Good", "Defect", "Damaged", "Missing");
-    private static final Set<String> VALID_AVAILABILITY = SetUtil.of("Borrowable", "Non-Borrowable");
-
     private final tbl_InventoryItemsRepo inventoryItemsRepo;
-    private final tbl_CampusStoragesRepo campusStoragesRepo;
     private final InventoryService inventoryService;
+    private final InventoryChangeRequestService changeRequestService;
+    private final CurrentUserService currentUserService;
 
     public InventoryItemController(tbl_InventoryItemsRepo inventoryItemsRepo,
-                                   tbl_CampusStoragesRepo campusStoragesRepo,
-                                   InventoryService inventoryService) {
+                                   InventoryService inventoryService,
+                                   InventoryChangeRequestService changeRequestService,
+                                   CurrentUserService currentUserService) {
         this.inventoryItemsRepo = inventoryItemsRepo;
-        this.campusStoragesRepo = campusStoragesRepo;
         this.inventoryService = inventoryService;
-    }
-
-    // On PATCH a null field means "leave unchanged".
-    public record InventoryItemRequest(String name, Long storageId, Integer available,
-                                       String condition, String availability, String photoUrl) {
+        this.changeRequestService = changeRequestService;
+        this.currentUserService = currentUserService;
     }
 
     // Active items by default; ?trashed=true lists the trash bin instead.
@@ -70,140 +75,111 @@ public class InventoryItemController {
     }
 
     @PostMapping
-    public ResponseEntity<?> createInventoryItem(@RequestBody InventoryItemRequest request) {
-        if (request.name() == null || request.name().isBlank()) {
-            return badRequest("Item name is required");
+    public ResponseEntity<?> createInventoryItem(@RequestBody ItemChanges request, Authentication authentication) {
+        tbl_Users user = currentUserService.find(authentication).orElse(null);
+        if (!canChange(user)) {
+            return forbidden();
         }
-        if (request.storageId() == null) {
-            return badRequest("Storage is required");
-        }
-        if (request.available() == null) {
-            return badRequest("Quantity available is required");
-        }
-        if (request.condition() == null) {
-            return badRequest("Condition is required");
-        }
-        if (request.availability() == null) {
-            return badRequest("Item type is required");
-        }
-        String error = validate(request);
+        String error = inventoryService.checkCreate(request);
         if (error != null) {
             return badRequest(error);
         }
-
-        tbl_InventoryItems item = new tbl_InventoryItems();
-        item.setName(request.name().trim());
-        item.setStorageId(request.storageId());
-        item.setAvailable(request.available());
-        item.setCondition(request.condition());
-        item.setAvailability(request.availability());
-        item.setPhotoUrl(request.photoUrl());
-
-        return ResponseEntity.ok(inventoryItemsRepo.save(item));
+        if (CurrentUserService.isSuperadmin(user)) {
+            return ResponseEntity.ok(inventoryService.create(request));
+        }
+        return queued(changeRequestService.submit(user, ACTION_CREATE, null, request, null));
     }
 
     @PatchMapping("/{id}")
-    public ResponseEntity<?> updateInventoryItem(@PathVariable Long id, @RequestBody InventoryItemRequest request) {
+    public ResponseEntity<?> updateInventoryItem(@PathVariable Long id, @RequestBody ItemChanges request,
+                                                 Authentication authentication) {
+        tbl_Users user = currentUserService.find(authentication).orElse(null);
+        if (!canChange(user)) {
+            return forbidden();
+        }
         tbl_InventoryItems item = inventoryItemsRepo.findById(id).orElse(null);
         if (item == null) {
             return ResponseEntity.notFound().build();
         }
-        if (item.getDeletedAt() != null) {
-            return badRequest("This item is in the trash bin - restore it before editing");
-        }
-        if (request.name() != null && request.name().isBlank()) {
-            return badRequest("Item name is required");
-        }
-        String error = validate(request);
+        String error = inventoryService.checkUpdate(item, request);
         if (error != null) {
             return badRequest(error);
         }
-
-        if (request.name() != null) {
-            item.setName(request.name().trim());
+        if (CurrentUserService.isSuperadmin(user)) {
+            return ResponseEntity.ok(inventoryService.update(item, request));
         }
-        if (request.storageId() != null) {
-            item.setStorageId(request.storageId());
+        // Only the fields that actually change are queued, so two Admins
+        // editing different fields of one item don't overwrite each other.
+        ItemChanges changes = inventoryService.onlyChanged(item, request);
+        if (InventoryService.isEmpty(changes)) {
+            return badRequest("Nothing was changed");
         }
-        if (request.available() != null) {
-            item.setAvailable(request.available());
-        }
-        if (request.condition() != null) {
-            item.setCondition(request.condition());
-        }
-        if (request.availability() != null) {
-            item.setAvailability(request.availability());
-        }
-        if (request.photoUrl() != null) {
-            item.setPhotoUrl(request.photoUrl());
-        }
-
-        return ResponseEntity.ok(inventoryItemsRepo.save(item));
+        return queued(changeRequestService.submit(user, ACTION_UPDATE, item, changes,
+            inventoryService.currentValuesOf(item, changes)));
     }
 
     // Soft delete: moves the item to the trash bin. It (and its reports) can
     // be restored until it's permanently deleted - by hand or after 30 days.
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> trashInventoryItem(@PathVariable Long id) {
-        tbl_InventoryItems item = inventoryItemsRepo.findById(id).orElse(null);
-        if (item == null) {
-            return ResponseEntity.notFound().build();
-        }
-        if (item.getDeletedAt() != null) {
-            return badRequest("This item is already in the trash bin");
-        }
-        item.setDeletedAt(Instant.now());
-        return ResponseEntity.ok(inventoryItemsRepo.save(item));
+    public ResponseEntity<?> trashInventoryItem(@PathVariable Long id, Authentication authentication) {
+        return itemAction(id, authentication, ACTION_TRASH, inventoryService::checkTrash,
+            item -> ResponseEntity.ok(inventoryService.trash(item)));
     }
 
     @PostMapping("/{id}/restore")
-    public ResponseEntity<?> restoreInventoryItem(@PathVariable Long id) {
-        tbl_InventoryItems item = inventoryItemsRepo.findById(id).orElse(null);
-        if (item == null) {
-            return ResponseEntity.notFound().build();
-        }
-        if (item.getDeletedAt() == null) {
-            return badRequest("This item isn't in the trash bin");
-        }
-        item.setDeletedAt(null);
-        return ResponseEntity.ok(inventoryItemsRepo.save(item));
+    public ResponseEntity<?> restoreInventoryItem(@PathVariable Long id, Authentication authentication) {
+        return itemAction(id, authentication, ACTION_RESTORE, inventoryService::checkRestore,
+            item -> ResponseEntity.ok(inventoryService.restore(item)));
     }
 
-    // Only from the trash bin, so nothing is ever destroyed in one click.
     @DeleteMapping("/{id}/permanent")
-    public ResponseEntity<?> permanentlyDeleteInventoryItem(@PathVariable Long id) {
+    public ResponseEntity<?> permanentlyDeleteInventoryItem(@PathVariable Long id, Authentication authentication) {
+        return itemAction(id, authentication, ACTION_PERMANENT_DELETE, inventoryService::checkPermanentDelete,
+            item -> {
+                inventoryService.permanentlyDelete(item.getId());
+                return ResponseEntity.noContent().build();
+            });
+    }
+
+    // Shared flow for the trash-bin actions: find the item, check the action
+    // is valid for it, then apply (Superadmin) or queue (Admin).
+    private ResponseEntity<?> itemAction(Long id, Authentication authentication, String action,
+                                         Function<tbl_InventoryItems, String> check,
+                                         Function<tbl_InventoryItems, ResponseEntity<?>> apply) {
+        tbl_Users user = currentUserService.find(authentication).orElse(null);
+        if (!canChange(user)) {
+            return forbidden();
+        }
         tbl_InventoryItems item = inventoryItemsRepo.findById(id).orElse(null);
         if (item == null) {
             return ResponseEntity.notFound().build();
         }
-        if (item.getDeletedAt() == null) {
-            return badRequest("Move this item to the trash bin before deleting it permanently");
+        String error = check.apply(item);
+        if (error != null) {
+            return badRequest(error);
         }
-        inventoryService.permanentlyDelete(id);
-        return ResponseEntity.noContent().build();
+        if (CurrentUserService.isSuperadmin(user)) {
+            return apply.apply(item);
+        }
+        return queued(changeRequestService.submit(user, action, item, null, null));
     }
 
-    // Checks only the fields that were sent; required-ness is the caller's job.
-    private String validate(InventoryItemRequest request) {
-        if (request.name() != null && request.name().trim().length() > NAME_MAX) {
-            return "Item name must be " + NAME_MAX + " characters or fewer";
-        }
-        if (request.storageId() != null && !campusStoragesRepo.existsById(request.storageId())) {
-            return "No campus storage exists with that storageId";
-        }
-        if (request.available() != null && request.available() < 0) {
-            return "Quantity available can't be negative";
-        }
-        if (request.condition() != null && !VALID_CONDITIONS.contains(request.condition())) {
-            return "Invalid condition";
-        }
-        if (request.availability() != null && !VALID_AVAILABILITY.contains(request.availability())) {
-            return "Invalid item type";
-        }
-        return null;
+    private static boolean canChange(tbl_Users user) {
+        return CurrentUserService.isSuperadmin(user) || CurrentUserService.isAdmin(user);
     }
 
-    private ResponseEntity<?> badRequest(String message) {
+    private static ResponseEntity<?> queued(tbl_InventoryChangeRequests request) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(MapUtil.of(
+            "message", "Sent to a Superadmin for approval. Nothing changes until it's approved.",
+            "request", request));
+    }
+
+    private static ResponseEntity<?> forbidden() {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .body(MapUtil.of("message", "Only Superadmins and Admins can change the inventory"));
+    }
+
+    private static ResponseEntity<?> badRequest(String message) {
         return ResponseEntity.badRequest().body(MapUtil.of("message", message));
     }
 }

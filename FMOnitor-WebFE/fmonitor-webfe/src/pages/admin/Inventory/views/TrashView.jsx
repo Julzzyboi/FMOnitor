@@ -1,8 +1,8 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faImage, faRotateLeft, faTrash, faHourglassHalf } from '@fortawesome/free-solid-svg-icons'
+import { faImage, faRotateLeft, faTrash, faHourglassHalf, faClock } from '@fortawesome/free-solid-svg-icons'
 import useNow from '../../../../hooks/useNow'
 import EmptyState from '../components/EmptyState'
-import { ConditionTag } from '../components/InventoryTags'
+import { ConditionTag, CriticalTag } from '../components/InventoryTags'
 import RelativeTime from '../components/RelativeTime'
 import { formatItemId } from '../utils/itemId'
 import { formatDateTime } from '../utils/timeFormat'
@@ -28,7 +28,7 @@ function PurgeCountdown({ deletedAt, now }) {
   )
 }
 
-function TrashRow({ item, reportCount, now, onRestore, onPurge }) {
+function TrashRow({ item, reportCount, pendingCount, canChange, now, onRestore, onPurge }) {
   return (
     <li className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center">
       <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -47,9 +47,16 @@ function TrashRow({ item, reportCount, now, onRestore, onPurge }) {
               Item ID: <span className="font-mono font-semibold text-gray-700">{formatItemId(item.id)}</span>
             </span>
             <ConditionTag condition={item.condition} />
+            {item.critical && <CriticalTag />}
             {reportCount > 0 && (
               <span>
                 · {reportCount} report{reportCount === 1 ? '' : 's'}
+              </span>
+            )}
+            {pendingCount > 0 && (
+              <span className="inline-flex items-center gap-1 font-semibold text-amber-700">
+                <FontAwesomeIcon icon={faClock} className="h-2.5 w-2.5" />
+                Pending approval
               </span>
             )}
           </p>
@@ -61,6 +68,7 @@ function TrashRow({ item, reportCount, now, onRestore, onPurge }) {
 
       <div className="flex shrink-0 flex-wrap items-center gap-2 sm:flex-col sm:items-end">
         <PurgeCountdown deletedAt={item.deletedAt} now={now} />
+        {canChange && (
         <div className="flex gap-2">
           <button
             type="button"
@@ -79,12 +87,22 @@ function TrashRow({ item, reportCount, now, onRestore, onPurge }) {
             Delete Forever
           </button>
         </div>
+        )}
       </div>
     </li>
   )
 }
 
-function TrashView({ items, hasAnyTrash, reportCountByItem, onRestore, onPurge, onClearSearch }) {
+function TrashView({
+  items,
+  hasAnyTrash,
+  reportCountByItem,
+  pendingCountByItem = {},
+  canChange = true,
+  onRestore,
+  onPurge,
+  onClearSearch,
+}) {
   // One shared clock so every countdown ticks together.
   const now = useNow(60000)
 
@@ -92,8 +110,8 @@ function TrashView({ items, hasAnyTrash, reportCountByItem, onRestore, onPurge, 
     return hasAnyTrash ? (
       <EmptyState
         title="No matches"
-        message="Nothing in the trash fits that search."
-        actionLabel="Clear search"
+        message="Nothing in the trash fits those filters. Try a different search or clear the filters."
+        actionLabel="Clear filters"
         onAction={onClearSearch}
       />
     ) : (
@@ -108,6 +126,8 @@ function TrashView({ items, hasAnyTrash, reportCountByItem, onRestore, onPurge, 
           key={item.id}
           item={item}
           reportCount={reportCountByItem[item.id] ?? 0}
+          pendingCount={pendingCountByItem[item.id] ?? 0}
+          canChange={canChange}
           now={now}
           onRestore={() => onRestore(item)}
           onPurge={() => onPurge(item)}
