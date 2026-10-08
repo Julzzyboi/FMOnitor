@@ -393,7 +393,7 @@ function AccountsContent() {
         </button>
       </div>
 
-      <div className="animate-[fade-in-up_0.4s_ease-out_0.15s_forwards] rounded-xl bg-white opacity-0 shadow-sm">
+      <div className="animate-[fade-in-up_0.4s_ease-out_0.15s_forwards] rounded-xl bg-white opacity-0 shadow-lg">
         <UsersTable
           users={paginatedUsers}
           onRowClick={setViewingUser}

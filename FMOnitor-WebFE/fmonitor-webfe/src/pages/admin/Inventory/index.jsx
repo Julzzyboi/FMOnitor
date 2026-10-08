@@ -629,7 +629,7 @@ function InventoryContent() {
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
       {/* Sections slide up one after another, same timing as the Accounts page. */}
       <aside className="w-full shrink-0 animate-[fade-in-up_0.4s_ease-out_forwards] opacity-0 lg:w-64">
-        <div className="rounded-xl bg-white p-3.5 shadow-sm">
+        <div className="rounded-xl bg-white p-3.5 shadow-lg">
           <div className="flex items-center justify-between px-1">
             <span className="text-sm font-bold text-gray-900">Filters</span>
             <button
@@ -854,7 +854,7 @@ function InventoryContent() {
         </div>
 
         {visibleList.length > 0 && (
-        <div className="mt-4 animate-[fade-in-up_0.4s_ease-out_0.18s_forwards] rounded-xl bg-white opacity-0 shadow-sm">
+        <div className="mt-4 animate-[fade-in-up_0.4s_ease-out_0.18s_forwards] rounded-xl bg-white opacity-0 shadow-lg">
           <Pagination
             page={currentPage}
             totalPages={totalPages}

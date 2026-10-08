@@ -48,7 +48,7 @@ export function TaskCard({ task, now, onOpen, showDate = false, compact = false 
     <button
       type="button"
       onClick={() => onOpen(task)}
-      className={`group flex w-full cursor-pointer gap-3 rounded-xl border bg-white text-left transition-all duration-150 hover:-translate-y-0.5 hover:border-[#fccb35] hover:shadow-md ${
+      className={`group flex w-full cursor-pointer gap-3 rounded-xl border bg-white text-left shadow-md transition-all duration-150 hover:-translate-y-0.5 hover:border-[#fccb35] hover:shadow-lg ${
         compact ? 'p-2.5' : 'p-3'
       } ${overdue ? 'border-red-200' : 'border-gray-200'} ${completed ? 'opacity-70' : ''}`}
     >

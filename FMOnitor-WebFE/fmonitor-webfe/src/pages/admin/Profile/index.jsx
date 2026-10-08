@@ -62,7 +62,7 @@ function ProfileContent() {
   return (
     <div className="flex flex-col gap-6">
       <div {...enter(0)}>
-        <section className="overflow-hidden rounded-xl bg-white shadow-sm">
+        <section className="overflow-hidden rounded-xl bg-white shadow-lg">
           <div className="relative h-24 overflow-hidden bg-[#141414] sm:h-28">
             <div className="absolute -right-10 -top-16 h-48 w-48 rounded-full bg-[#fccb35]/10" />
             <DotGrid className="absolute right-6 top-5 opacity-60" />

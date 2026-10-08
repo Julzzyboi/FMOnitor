@@ -9,7 +9,7 @@ function TaskSchedulePanel({ selectedDate, now, tasks, onOpenTask, onViewDay, on
   const done = tasks.filter(isCompleted)
 
   return (
-    <aside className="w-full shrink-0 rounded-2xl bg-white shadow-sm xl:sticky xl:top-20 xl:w-80">
+    <aside className="w-full shrink-0 rounded-2xl bg-white shadow-lg xl:sticky xl:top-20 xl:w-80">
       <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-5 py-4">
         <div className="min-w-0">
           <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Ticket Schedule</p>

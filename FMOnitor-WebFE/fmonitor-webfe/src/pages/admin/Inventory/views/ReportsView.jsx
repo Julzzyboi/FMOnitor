@@ -22,7 +22,7 @@ const TYPE_STYLES = {
 
 function ReportCard({ report, item, onEdit, onDelete, onStatusChange }) {
   return (
-    <li className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-colors duration-150 hover:border-gray-300">
+    <li className="rounded-xl border border-gray-200 bg-white p-4 shadow-md transition-colors duration-150 hover:border-gray-300">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-[10px] font-bold uppercase tracking-wide text-gray-400">

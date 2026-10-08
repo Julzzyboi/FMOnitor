@@ -321,7 +321,7 @@ function CalendarContent() {
       </div>
 
       <div className="mt-6 flex flex-col gap-6 xl:flex-row xl:items-start">
-        <section className="min-w-0 flex-1 overflow-hidden rounded-2xl bg-white shadow-sm">
+        <section className="min-w-0 flex-1 overflow-hidden rounded-2xl bg-white shadow-lg">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 sm:px-5">
             <div className="flex min-w-0 items-center gap-2">
               <DatePickerDropdown

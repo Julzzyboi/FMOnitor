@@ -23,14 +23,14 @@ function StatCard({ label, value, hint, tone = 'neutral', to }) {
     </>
   )
 
-  const className = 'block rounded-xl bg-white p-5 shadow-sm'
+  const className = 'block rounded-xl bg-white p-5 shadow-lg'
 
   if (!to) return <div className={className}>{body}</div>
 
   return (
     <Link
       to={to}
-      className={`${className} transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#fccb35]`}
+      className={`${className} transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[#fccb35]`}
     >
       {body}
     </Link>

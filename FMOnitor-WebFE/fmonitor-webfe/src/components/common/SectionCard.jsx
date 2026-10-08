@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 // `toolbar` is any custom control (e.g. a segmented toggle) on the right.
 function SectionCard({ title, subtitle, action, toolbar, children, className = '' }) {
   return (
-    <section className={`flex flex-col rounded-xl bg-white p-5 shadow-sm ${className}`}>
+    <section className={`flex flex-col rounded-xl bg-white p-5 shadow-lg ${className}`}>
       <header className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-sm font-bold text-gray-900">{title}</h3>

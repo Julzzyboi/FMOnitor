@@ -86,7 +86,7 @@ function CompletedTasks({ tasks, now, onOpenTask, sectionRef }) {
   const today = toDateInputValue(startOfDay(now))
 
   return (
-    <section ref={sectionRef} id="completed-tasks" className="scroll-mt-20 rounded-2xl bg-white shadow-sm">
+    <section ref={sectionRef} id="completed-tasks" className="scroll-mt-20 rounded-2xl bg-white shadow-lg">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
         <div>
           <h2 className="text-sm font-bold uppercase tracking-wide text-gray-900">Completed Tasks</h2>

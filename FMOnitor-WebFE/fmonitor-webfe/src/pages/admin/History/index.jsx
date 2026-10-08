@@ -141,7 +141,7 @@ function History() {
       </div>
 
       {loading ? (
-        <div className="mt-8 flex flex-col items-center justify-center rounded-2xl border border-gray-100 bg-white py-24 shadow-sm">
+        <div className="mt-8 flex flex-col items-center justify-center rounded-2xl border border-gray-100 bg-white py-24 shadow-lg">
           <FontAwesomeIcon icon={faSpinner} className="h-8 w-8 animate-spin text-[#fccb35]" />
         </div>
       ) : (
@@ -163,7 +163,7 @@ function History() {
             ))}
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-lg">
             <FontAwesomeIcon icon={faMagnifyingGlass} className="h-4 w-4 text-gray-400" />
             <input
               type="text"
@@ -190,7 +190,7 @@ function History() {
             </button>
           </div>
 
-          <div className="mt-4 overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm">
+          <div className="mt-4 overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-lg">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead>
                 <tr className="border-b border-gray-100 text-xs font-semibold uppercase tracking-wide text-gray-400">

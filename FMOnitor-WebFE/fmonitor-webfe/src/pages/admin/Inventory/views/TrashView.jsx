@@ -30,7 +30,7 @@ function PurgeCountdown({ deletedAt, now }) {
 
 function TrashRow({ item, reportCount, pendingCount, canChange, now, onRestore, onPurge }) {
   return (
-    <li className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center">
+    <li className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-md sm:flex-row sm:items-center">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <div className="flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-100">
           {item.photoUrl ? (

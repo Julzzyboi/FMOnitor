@@ -38,7 +38,7 @@ function StatCards({ counts }) {
       {CARDS.map(({ key, label, icon, iconColor, iconBg }) => (
         <div
           key={key}
-          className="flex items-center justify-between rounded-xl bg-white p-5 shadow-sm"
+          className="flex items-center justify-between rounded-xl bg-white p-5 shadow-lg"
         >
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</p>

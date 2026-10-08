@@ -10,7 +10,7 @@ function AdminLayoutContent() {
 
   if (!checked) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-gray-100">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-[#fdcc36]" />
       </div>
     )
@@ -21,7 +21,7 @@ function AdminLayoutContent() {
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50 opacity-0 animate-[fade-in_0.3s_ease-out_forwards]">
+    <div className="flex min-h-screen bg-gray-100 opacity-0 animate-[fade-in_0.3s_ease-out_forwards]">
       <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
 
       <div className="flex min-h-screen flex-1 flex-col">

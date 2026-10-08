@@ -19,7 +19,7 @@ function FilterGroupSkeleton({ rows }) {
 
 function ItemCardSkeleton() {
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm">
+    <div className="rounded-xl border border-gray-100 bg-white p-3 shadow-md">
       <div className="h-32 w-full rounded-lg bg-gray-200" />
       <div className="mt-3 h-2.5 w-1/2 rounded bg-gray-200" />
       <div className="mt-2 h-3.5 w-3/4 rounded bg-gray-200" />
@@ -30,7 +30,7 @@ function ItemCardSkeleton() {
 
 function ReportCardSkeleton() {
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-md">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
           <div className="h-2.5 w-24 rounded bg-gray-200" />
@@ -55,7 +55,7 @@ function InventorySkeleton({ view }) {
   return (
     <div className="flex animate-pulse flex-col gap-6 lg:flex-row lg:items-start" aria-busy="true" aria-label="Loading inventory">
       <aside className="w-full shrink-0 lg:w-64">
-        <div className="rounded-xl bg-white p-3.5 shadow-sm">
+        <div className="rounded-xl bg-white p-3.5 shadow-lg">
           <div className="mb-4 flex items-center justify-between px-1">
             <div className="h-3.5 w-14 rounded bg-gray-200" />
             <div className="h-2.5 w-10 rounded bg-gray-200" />

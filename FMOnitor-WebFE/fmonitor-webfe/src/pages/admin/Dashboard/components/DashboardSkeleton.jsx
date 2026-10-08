@@ -15,7 +15,7 @@ const LEADS = {
 
 function CardSkeleton({ rows, lead = 'none', className = '' }) {
   return (
-    <div className={`rounded-xl bg-white p-5 shadow-sm ${className}`}>
+    <div className={`rounded-xl bg-white p-5 shadow-lg ${className}`}>
       <div className="mb-5 flex items-center justify-between">
         <div className="h-3.5 w-32 rounded bg-gray-200" />
         <div className="h-3 w-14 rounded bg-gray-200" />
@@ -56,7 +56,7 @@ function DashboardSkeleton() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="rounded-xl bg-white p-5 shadow-sm">
+          <div key={i} className="rounded-xl bg-white p-5 shadow-lg">
             <div className="h-2.5 w-24 rounded bg-gray-200" />
             <div className="mt-3 h-8 w-20 rounded bg-gray-200" />
             <div className="mt-2.5 h-2.5 w-28 rounded bg-gray-200" />

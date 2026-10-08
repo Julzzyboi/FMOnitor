@@ -3,7 +3,7 @@ import logo from '../../../../assets/logo.png'
 // Empty list placeholder with the FMOnitor hard hat as the mascot.
 function EmptyState({ title, message, actionLabel, onAction }) {
   return (
-    <div className="mt-4 flex flex-col items-center rounded-xl bg-white px-6 py-14 text-center shadow-sm">
+    <div className="mt-4 flex flex-col items-center rounded-xl bg-white px-6 py-14 text-center shadow-lg">
       <div className="relative">
         {/* logo.png has an opaque off-white background; multiply blends it into the white card. */}
         <img src={logo} alt="" className="mascot-bob relative h-24 w-24 mix-blend-multiply" />

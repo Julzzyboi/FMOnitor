@@ -29,7 +29,7 @@ function ActionList({ title, requests, isSuperadmin, blockedByMap, onOpen }) {
   const rows = tab === 'pending' ? pending : history
 
   return (
-    <div className="mt-4 rounded-xl bg-white p-3.5 shadow-sm">
+    <div className="mt-4 rounded-xl bg-white p-3.5 shadow-lg">
       <div className="flex items-center justify-between px-1">
         <span className="flex items-center gap-2 text-sm font-bold text-gray-900">
           <FontAwesomeIcon icon={faListCheck} className="h-3.5 w-3.5 text-gray-400" />
