@@ -134,6 +134,38 @@ body {
   }
 }
 
+/* Chart marks grow out of their baseline on first paint. */
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes grow-y {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+.chart-grow-x {
+  transform-origin: left center;
+  animation: grow-x 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.chart-grow-y {
+  transform-origin: center bottom;
+  animation: grow-y 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chart-grow-x,
+  .chart-grow-y {
+    animation: none;
+  }
+}
+
 /* FMOnitor logo bobbing on empty states; its shadow shrinks as it rises. */
 @keyframes mascot-bob {
   0%,
