@@ -3,6 +3,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faXmark } from '@fortawesome/free-solid-svg-icons'
 import { CAMPUS_AREA_TYPES } from '../data/facilityTypes'
 import PhotoFileInput from '../../../../components/common/PhotoFileInput'
+import { validateCampusArea } from '../utils/campusMapValidation'
+import { inputClass, FieldError } from './FormFields'
 
 function AddCampusAreaModal({ lngLat, campusOptions, editItem, initialName, detectedShape, onCancel, onSubmit }) {
   const isEdit = !!editItem
@@ -15,11 +17,14 @@ function AddCampusAreaModal({ lngLat, campusOptions, editItem, initialName, dete
   const [photoUrl, setPhotoUrl] = useState(editItem?.photoUrl ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+  const [fieldErrors, setFieldErrors] = useState({})
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+    const found = validateCampusArea({ name, description, height, branchId, isEdit })
+    setFieldErrors(found)
+    if (Object.keys(found).length > 0) return // blocks submission
     const heightValue = Number(height)
-    if (!name.trim() || !type || (!isEdit && !branchId) || !Number.isFinite(heightValue) || heightValue < 0) return
     setSubmitting(true)
     setError(null)
     const payload = {
@@ -52,6 +57,7 @@ function AddCampusAreaModal({ lngLat, campusOptions, editItem, initialName, dete
 
       <form
         onSubmit={handleSubmit}
+        noValidate
         className="relative w-full max-w-sm animate-[fade-in-up_0.25s_ease-out_forwards] rounded-2xl bg-white p-6 opacity-0 shadow-2xl sm:p-8"
       >
         <div className="flex items-center justify-between">
@@ -73,10 +79,10 @@ function AddCampusAreaModal({ lngLat, campusOptions, editItem, initialName, dete
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoFocus
-              required
-              className="rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 focus:border-[#fccb35] focus:outline-none focus:ring-2 focus:ring-[#fccb35]/30"
+              className={inputClass(fieldErrors.name)}
               placeholder="e.g. UST Main Building"
             />
+            <FieldError message={fieldErrors.name} />
           </label>
 
           <label className="flex flex-col gap-1.5">
@@ -101,9 +107,10 @@ function AddCampusAreaModal({ lngLat, campusOptions, editItem, initialName, dete
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              className="resize-none rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 focus:border-[#fccb35] focus:outline-none focus:ring-2 focus:ring-[#fccb35]/30"
+              className={`resize-none ${inputClass(fieldErrors.description)}`}
               placeholder="Optional - what this place is used for"
             />
+            <FieldError message={fieldErrors.description} />
           </label>
 
           <label className="flex flex-col gap-1.5">
@@ -114,9 +121,9 @@ function AddCampusAreaModal({ lngLat, campusOptions, editItem, initialName, dete
               step="0.1"
               value={height}
               onChange={(e) => setHeight(e.target.value)}
-              required
-              className="rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 focus:border-[#fccb35] focus:outline-none focus:ring-2 focus:ring-[#fccb35]/30"
+             className={inputClass(fieldErrors.height)}
             />
+            <FieldError message={fieldErrors.height} />
             <span className="text-xs text-gray-400">
               {editItem?.heightOverride
                 ? 'Corrected by hand - the map draws its own building at this height.'
@@ -130,7 +137,6 @@ function AddCampusAreaModal({ lngLat, campusOptions, editItem, initialName, dete
               <select
                 value={branchId}
                 onChange={(e) => setBranchId(e.target.value)}
-                required
                 className="rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 focus:border-[#fccb35] focus:outline-none focus:ring-2 focus:ring-[#fccb35]/30"
               >
                 {campusOptions.map((c) => (
@@ -139,6 +145,7 @@ function AddCampusAreaModal({ lngLat, campusOptions, editItem, initialName, dete
                   </option>
                 ))}
               </select>
+              <FieldError message={fieldErrors.branchId} />
             </label>
           )}
 

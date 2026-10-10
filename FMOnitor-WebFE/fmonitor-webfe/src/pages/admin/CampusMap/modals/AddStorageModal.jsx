@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faXmark } from '@fortawesome/free-solid-svg-icons'
 import PhotoFileInput from '../../../../components/common/PhotoFileInput'
+import { validatePlace } from '../utils/campusMapValidation'
+import { inputClass, FieldError } from './FormFields'
 
 function AddStorageModal({ lngLat, campusAreaOptions, editItem, presetCampusAreaId, initialName, onCancel, onSubmit }) {
   const isEdit = !!editItem
@@ -14,10 +16,13 @@ function AddStorageModal({ lngLat, campusAreaOptions, editItem, presetCampusArea
   const [photoUrl, setPhotoUrl] = useState(editItem?.photoUrl ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+  const [fieldErrors, setFieldErrors] = useState({})
 
-  const handleSubmit = async (event) => {
+    const handleSubmit = async (event) => {
     event.preventDefault()
-    if (!name.trim() || !campusAreaId) return
+    const found = validatePlace({ name, description, campusAreaId })
+    setFieldErrors(found)
+    if (Object.keys(found).length > 0) return // blocks submission
     setSubmitting(true)
     setError(null)
     const payload = {
@@ -43,6 +48,7 @@ function AddStorageModal({ lngLat, campusAreaOptions, editItem, presetCampusArea
 
       <form
         onSubmit={handleSubmit}
+        noValidate
         className="relative w-full max-w-sm animate-[fade-in-up_0.25s_ease-out_forwards] rounded-2xl bg-white p-6 opacity-0 shadow-2xl sm:p-8"
       >
         <div className="flex items-center justify-between">
@@ -64,10 +70,10 @@ function AddStorageModal({ lngLat, campusAreaOptions, editItem, presetCampusArea
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoFocus
-              required
-              className="rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 focus:border-[#fccb35] focus:outline-none focus:ring-2 focus:ring-[#fccb35]/30"
+              className={inputClass(fieldErrors.name)}
               placeholder="e.g. Storage Room 101"
             />
+            <FieldError message={fieldErrors.name} />
           </label>
 
           {fixedArea ? (
@@ -87,8 +93,7 @@ function AddStorageModal({ lngLat, campusAreaOptions, editItem, presetCampusArea
               <select
                 value={campusAreaId}
                 onChange={(e) => setCampusAreaId(e.target.value)}
-                required
-                className="rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 focus:border-[#fccb35] focus:outline-none focus:ring-2 focus:ring-[#fccb35]/30"
+                className={inputClass(fieldErrors.campusAreaId)}
               >
                 {campusAreaOptions.length === 0 && <option value="">No campus areas exist yet</option>}
                 {campusAreaOptions.map((area) => (
@@ -97,6 +102,7 @@ function AddStorageModal({ lngLat, campusAreaOptions, editItem, presetCampusArea
                   </option>
                 ))}
               </select>
+              <FieldError message={fieldErrors.campusAreaId} />
             </label>
           )}
 
@@ -106,9 +112,10 @@ function AddStorageModal({ lngLat, campusAreaOptions, editItem, presetCampusArea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              className="resize-none rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 focus:border-[#fccb35] focus:outline-none focus:ring-2 focus:ring-[#fccb35]/30"
+              className={`resize-none ${inputClass(fieldErrors.description)}`}
               placeholder="Optional - what's kept or held here"
             />
+            <FieldError message={fieldErrors.description} />
           </label>
           <PhotoFileInput value={photoUrl} onChange={setPhotoUrl} />
 
